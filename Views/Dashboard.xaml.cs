@@ -722,4 +722,34 @@ namespace UserModule
             throw new NotImplementedException();
         }
     }
+
+    /// <summary>
+    /// Converter to format booking type with room number for Sleeper bookings
+    /// </summary>
+    public class BookingTypeConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (values == null || values.Length < 2) return string.Empty;
+
+            string? bookingType = values[0] as string;
+            string? roomNumber = values[1] as string;
+
+            if (string.IsNullOrWhiteSpace(bookingType))
+                return string.Empty;
+
+            // If Sleeper and room number exists, format as "Sleeper(num)"
+            if (bookingType.Equals("Sleeper", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(roomNumber))
+            {
+                return $"{bookingType}({roomNumber})";
+            }
+
+            return bookingType;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

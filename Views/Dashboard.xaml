@@ -11,8 +11,8 @@
              VerticalAlignment="Stretch"
              MinHeight="600" 
              MinWidth="800">
-
     <UserControl.Resources>
+        <local:BookingTypeConverter x:Key="BookingTypeConverter"/>
         <!-- Booking ID Converter -->
         <local:BookingIdConverter x:Key="BookingIdConverter"/>
         <!-- Header Button Style -->
@@ -550,11 +550,18 @@
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding booking_type}" FontSize="13"
+                                            <TextBlock FontSize="13"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"
                                                        TextAlignment="Center"
-                                                       TextWrapping="Wrap"/>
+                                                       TextWrapping="Wrap">
+                                                <TextBlock.Text>
+                                                    <MultiBinding Converter="{StaticResource BookingTypeConverter}">
+                                                        <Binding Path="booking_type"/>
+                                                        <Binding Path="room_number"/>
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>

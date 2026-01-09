@@ -164,6 +164,7 @@ namespace UserModule
         /// 0 = only Sitting
         /// 1 = only Sleeping (Sleeper)
         /// 2 = both Sitting and Sleeping
+        /// If only one type is available, it will be auto-selected and the ComboBox will be disabled
         /// </summary>
         private void ConfigureSeatingOptions(int seatingTypes)
         {
@@ -215,8 +216,20 @@ namespace UserModule
                     break;
             }
 
-            // Select placeholder by default
-            txtSeats.SelectedIndex = 0;
+            // Check if only one option is available (seatingTypes 0 or 1)
+            if (seatingTypes == 0 || seatingTypes == 1)
+            {
+                // Only one option - auto-select it and disable the ComboBox
+                txtSeats.SelectedIndex = 1; // Select the first (and only) non-placeholder item
+                txtSeats.IsEnabled = false; // Disable ComboBox since there's no choice
+                errSeats.Visibility = Visibility.Collapsed; // Hide error message
+            }
+            else
+            {
+                // Multiple options - allow user to select
+                txtSeats.SelectedIndex = 0; // Select placeholder
+                txtSeats.IsEnabled = true; // Enable ComboBox for user selection
+            }
         }
 
         /// <summary>
@@ -339,6 +352,9 @@ namespace UserModule
                     // For Sitting, show default hours (1-12)
                     PopulateDefaultHours();
                 }
+
+                // Update room number visibility based on seat type
+                UpdateRoomNumberVisibility();
             }
         }
 
@@ -1054,7 +1070,7 @@ namespace UserModule
         }
 
         // Button Click Event to Generate Bill
-        private async void GenerateBill_Click(object sender, RoutedEventArgs e)
+        private void GenerateBill_Click(object sender, RoutedEventArgs e)
         {
             if (!ValidateForm())
             {
@@ -1062,6 +1078,354 @@ namespace UserModule
                 return;
             }
 
+            // Populate summary overlay with current form data
+            PopulateSummaryOverlay();
+
+            // Show pricing summary overlay
+            PricingSummaryOverlay.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>
+        /// Populate the pricing summary overlay with current booking details
+        /// </summary>
+        private void PopulateSummaryOverlay()
+        {
+            try
+            {
+                // Number of Persons
+                if (summaryPersons != null && int.TryParse(txtPersons.Text, out int persons))
+                {
+                    summaryPersons.Text = persons.ToString();
+                }
+
+                // Per Person Price
+                if (summaryPrice != null && decimal.TryParse(txtRate.Text, out decimal rate))
+                {
+                    summaryPrice.Text = rate.ToString("F2");
+                }
+
+                // Total Hours
+                if (summarytxtHours != null)
+                {
+                    var selectedHours = (txtHours.SelectedItem as ComboBoxItem)?.Content?.ToString();
+                    summarytxtHours.SelectedItem = txtHours.SelectedItem;
+                }
+
+                // Discount (start fresh)
+                if (summaryDiscount != null)
+                {
+                    summaryDiscount.Text = "0";
+                }
+
+                // Check if Sleeper seat type is selected to show/hide room number field
+                UpdateRoomNumberVisibility();
+
+                // Recalculate Total Amount
+                RecalculateSummaryTotal();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error populating summary: {ex.Message}");
+                ShowAlert("error", $"Error loading summary: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Show or hide room number field based on seat type selection
+        /// </summary>
+        private void UpdateRoomNumberVisibility()
+        {
+            if (roomNumberGrid == null || txtSeats == null) return;
+
+            var selectedSeatType = (txtSeats.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            
+            if (selectedSeatType == "Sleeper")
+            {
+                roomNumberGrid.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                roomNumberGrid.Visibility = Visibility.Collapsed;
+                if (summaryRoomNumber != null)
+                {
+                    summaryRoomNumber.Clear();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Recalculate the total amount in the summary based on persons, price, hours, and discount
+        /// </summary>
+        private void RecalculateSummaryTotal()
+        {
+            try
+            {
+                if (summaryPersons == null || summaryPrice == null || summaryDiscount == null || summaryTotalAmount == null || summarytxtHours == null)
+                {
+                    return; // Controls not initialized yet
+                }
+
+                if (!int.TryParse(summaryPersons.Text, out int persons) || persons <= 0)
+                    persons = 0;
+
+                if (!decimal.TryParse(summaryPrice.Text, out decimal pricePerPerson) || pricePerPerson < 0)
+                    pricePerPerson = 0;
+
+                if (!decimal.TryParse(summaryDiscount.Text, out decimal discount) || discount < 0)
+                    discount = 0;
+
+                // Parse hours from summarytxtHours selected item (format: "X hr" or "X-Y hrs")
+                var selectedItem = summarytxtHours.SelectedItem as ComboBoxItem;
+                string hoursText = selectedItem?.Content?.ToString() ?? string.Empty;
+                int hours = 0;
+
+                if (!string.IsNullOrEmpty(hoursText))
+                {
+                    string hoursPart = hoursText.Split(' ')[0];
+                    if (hoursPart.Contains("-"))
+                    {
+                        var rangeParts = hoursPart.Split('-');
+                        if (rangeParts.Length == 2 && int.TryParse(rangeParts[1], out int maxHours))
+                        {
+                            hours = maxHours;
+                        }
+                    }
+                    else
+                    {
+                        int.TryParse(hoursPart, out hours);
+                    }
+                }
+
+                // Calculate: (persons * price per person) * hours - discount
+                decimal totalAmount = (persons * pricePerPerson * hours) - discount;
+                if (totalAmount < 0) totalAmount = 0;
+
+                summaryTotalAmount.Text = totalAmount.ToString("F2");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error recalculating summary total: {ex.Message}");
+                if (summaryTotalAmount != null)
+                {
+                    summaryTotalAmount.Text = "0";
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handle discount change in summary overlay
+        /// </summary>
+        private void SummaryDiscount_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                RecalculateSummaryTotal();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in discount text changed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Increment hours in summary overlay
+        /// </summary>
+        private void IncrementHours_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (summarytxtHours == null) return;
+
+                var selectedItem = summarytxtHours.SelectedItem as ComboBoxItem;
+                string hoursText = selectedItem?.Content?.ToString() ?? string.Empty;
+                int currentHours = 0;
+
+                if (!string.IsNullOrEmpty(hoursText))
+                {
+                    string hoursPart = hoursText.Split(' ')[0];
+                    if (hoursPart.Contains("-"))
+                    {
+                        var rangeParts = hoursPart.Split('-');
+                        if (rangeParts.Length == 2 && int.TryParse(rangeParts[1], out int maxHours))
+                        {
+                            currentHours = maxHours;
+                        }
+                    }
+                    else
+                    {
+                        int.TryParse(hoursPart, out currentHours);
+                    }
+                }
+
+                // Increment and cap at 12 hours
+                if (currentHours < 12)
+                {
+                    currentHours++;
+                    summarytxtHours.SelectedIndex = currentHours; // ComboBox items start at index 1 for "1 hr"
+                    RecalculateSummaryTotal();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error incrementing hours: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Decrement hours in summary overlay
+        /// </summary>
+        private void DecrementHours_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (summarytxtHours == null) return;
+
+                var selectedItem = summarytxtHours.SelectedItem as ComboBoxItem;
+                string hoursText = selectedItem?.Content?.ToString() ?? string.Empty;
+                int currentHours = 0;
+
+                if (!string.IsNullOrEmpty(hoursText))
+                {
+                    string hoursPart = hoursText.Split(' ')[0];
+                    if (hoursPart.Contains("-"))
+                    {
+                        var rangeParts = hoursPart.Split('-');
+                        if (rangeParts.Length == 2 && int.TryParse(rangeParts[1], out int maxHours))
+                        {
+                            currentHours = maxHours;
+                        }
+                    }
+                    else
+                    {
+                        int.TryParse(hoursPart, out currentHours);
+                    }
+                }
+
+                // Decrement and cap at 1 hour
+                if (currentHours > 1)
+                {
+                    currentHours--;
+                    summarytxtHours.SelectedIndex = currentHours; // ComboBox items start at index 1 for "1 hr"
+                    RecalculateSummaryTotal();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error decrementing hours: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// <summary>
+        /// Handle Enter key press on Print button
+        /// </summary>
+        private void PrintButton_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Return)
+            {
+                PrintButton_Click(sender, new RoutedEventArgs());
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// Prevent double-click on Print button
+        /// </summary>
+        private void PrintButton_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount > 1)
+            {
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// Sync total hours from summary card with the main txtHours ComboBox
+        /// </summary>
+        private void SummaryHours_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (summarytxtHours?.SelectedIndex > 0 && txtHours != null)
+            {
+                txtHours.SelectedIndex = summarytxtHours.SelectedIndex;
+                RecalculateSummaryTotal();
+            }
+        }
+
+        /// <summary>
+        /// Handle Enter key press in summary card to trigger print button
+        /// </summary>
+        private void SummaryCard_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Return && PrintButton != null)
+            {
+                PrintButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// Print button - execute the original GenerateBill logic
+        /// </summary>
+        private async void PrintButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Update the txtTotalAmount from summary before generating bill
+            if (decimal.TryParse(summaryTotalAmount.Text, out decimal summaryTotal))
+            {
+                txtTotalAmount.Text = summaryTotal.ToString("F2");
+            }
+
+            // Close the overlay
+            PricingSummaryOverlay.Visibility = Visibility.Collapsed;
+
+            // Execute original bill generation logic
+            await ExecuteGenerateBill();
+        }
+
+        /// <summary>
+        /// <summary>
+        /// Handle double-click on overlay card to trigger print
+        /// </summary>
+        private void OverlayCard_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                // Check if it's a double-click
+                if (e.ClickCount == 2)
+                {
+                    // Call the print button click handler
+                    PrintButton_Click(PrintButton, new RoutedEventArgs());
+                    e.Handled = true; // Mark event as handled to prevent double-click from selecting text
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in OverlayCard_PreviewMouseDown: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Cancel button - close overlay without processing
+        /// </summary>
+        private void CancelOverlay_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (PricingSummaryOverlay != null)
+                {
+                    PricingSummaryOverlay.Visibility = Visibility.Collapsed;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in CancelOverlay_Click: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Execute the actual bill generation (separated from UI trigger)
+        /// </summary>
+        private async Task ExecuteGenerateBill()
+        {
             // Show loading overlay
             LoaderOverlay.Visibility = Visibility.Visible;
 
@@ -1082,29 +1446,19 @@ namespace UserModule
                 int totalHours = 0;
                 var selectedHours = (txtHours.SelectedItem as ComboBoxItem)?.Content?.ToString();
                 
-                //Console.WriteLine($"\n=== PARSING TOTAL HOURS ===");
-                //Console.WriteLine($"Selected Hours Text: '{selectedHours}'");
-                
                 if (!string.IsNullOrEmpty(selectedHours))
                 {
                     // Handle both formats: "3 hr" and "1-3 hrs"
                     string hoursPart = selectedHours.Split(' ')[0]; // Get "3" or "1-3"
-                    //Console.WriteLine($"Hours Part (before space): '{hoursPart}'");
                     
                     if (hoursPart.Contains("-"))
                     {
                         // Handle range format "1-3" - use the max value
                         var rangeParts = hoursPart.Split('-');
-                        //Console.WriteLine($"Range Parts: [{string.Join(", ", rangeParts)}]");
                         
                         if (rangeParts.Length == 2 && int.TryParse(rangeParts[1], out int maxHours))
                         {
                             totalHours = maxHours;
-                            //Console.WriteLine($"✅ Parsed hour range: Using max hours = {totalHours}");
-                        }
-                        else
-                        {
-                            //Console.WriteLine($"❌ Failed to parse hour range");
                         }
                     }
                     else
@@ -1113,26 +1467,13 @@ namespace UserModule
                         if (int.TryParse(hoursPart, out int singleHour))
                         {
                             totalHours = singleHour;
-                            //Console.WriteLine($"✅ Parsed single hour: {totalHours}");
-                        }
-                        else
-                        {
-                            //Console.WriteLine($"❌ Failed to parse single hour from '{hoursPart}'");
                         }
                     }
                 }
-                else
-                {
-                    //Console.WriteLine("❌ No hours selected");
-                }
-                
-                //Console.WriteLine($"Final totalHours value: {totalHours}");
-                //Console.WriteLine("====================================\n");
 
                 int persons = int.TryParse(txtPersons.Text, out var parsedPersons) ? parsedPersons : 0;
                 decimal rate = decimal.TryParse(txtRate.Text, out var r) ? r : 0;
                 decimal paidAmount = 0; // No advance amount
-
 
                 decimal totalAmount = decimal.TryParse(txtTotalAmount.Text, out var t) ? t : 0;
                 decimal balance = totalAmount - paidAmount;
@@ -1147,6 +1488,7 @@ namespace UserModule
                     phone_number = phoneNo,
                     number_of_persons = persons,
                     booking_type = seatType,
+                    room_number = summaryRoomNumber?.Text,
                     total_hours = totalHours,
                     booking_date = DateTime.Now,
                     in_time = DateTime.Now.TimeOfDay,
@@ -1301,6 +1643,18 @@ namespace UserModule
             errIdType.Visibility = Visibility.Collapsed;
             errIdNumber.Visibility = Visibility.Collapsed;
 
+            // Reload seating types from LocalStorage to restore ComboBox items
+            string? seatingTypesStr = LocalStorage.GetItem("seating_types");
+            if (!string.IsNullOrEmpty(seatingTypesStr) && int.TryParse(seatingTypesStr, out int seatingTypes))
+            {
+                ConfigureSeatingOptions(seatingTypes);
+            }
+            else
+            {
+                // Default to both options if not found
+                ConfigureSeatingOptions(2);
+            }
+
             // Generate a fresh new Bill ID
             GenerateBillIDFromPhone();
 
@@ -1429,40 +1783,12 @@ namespace UserModule
         // Cancel Button Click Event
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
-            // Reset Enter count and timer
-            idNumberEnterCount = 0;
-            enterResetTimer.Stop();
-
-            // Clear all input fields
-            txtFirstName.Text = string.Empty;
-            txtCustomer.Text = string.Empty;
-            txtPhone.Text = string.Empty;
-            txtPersons.Text = string.Empty;
-            txtBookingID.Text = string.Empty;
-            txtRate.Text = string.Empty;
-            txtTotalAmount.Text = string.Empty;
-            txtDiscount.Text = string.Empty;
-            txtIdNumber.Text = string.Empty;
-
-            // Reset ComboBoxes to placeholder
-            txtSeats.SelectedIndex = 0;
-            txtHours.SelectedIndex = 0;
-            cmbIdType.SelectedIndex = 0;
-            
-            // Disable ID Number field until ID Type is selected
-            txtIdNumber.IsEnabled = false;
-
-            // Hide all error messages
-            errCustomer.Visibility = Visibility.Collapsed;
-            errPhone.Visibility = Visibility.Collapsed;
-            errPersons.Visibility = Visibility.Collapsed;
-            errSeats.Visibility = Visibility.Collapsed;
-            errHours.Visibility = Visibility.Collapsed;
-            errIdType.Visibility = Visibility.Collapsed;
-            errIdNumber.Visibility = Visibility.Collapsed;
-
-            // Focus on first field
-            txtFirstName.Focus();
+            // Close any open overlays without clearing the form
+            if (PricingSummaryOverlay != null && PricingSummaryOverlay.Visibility == Visibility.Visible)
+            {
+                PricingSummaryOverlay.Visibility = Visibility.Collapsed;
+            }
+            // Note: Form data is NOT cleared on cancel button click
         }
 
 
@@ -1574,7 +1900,33 @@ namespace UserModule
                 // Move to next control
                 if (currentIndex + 1 < controlOrder.Length)
                 {
-                    controlOrder[currentIndex + 1].Focus();
+                    int nextIndex = currentIndex + 1;
+                    Control nextControl = controlOrder[nextIndex];
+
+                    // Special handling: Skip Seat Type if only one item or already selected
+                    if (nextControl == txtSeats && (txtSeats.Items.Count <= 1 || txtSeats.SelectedIndex > 0))
+                    {
+                        // Move to Total Hours instead
+                        if (nextIndex + 1 < controlOrder.Length)
+                        {
+                            controlOrder[nextIndex + 1].Focus();
+                        }
+                        else
+                        {
+                            if (AreAllRequiredFieldsFilled())
+                            {
+                                GenerateBillButton.Focus();
+                            }
+                            else
+                            {
+                                ShowAlert("warning", "Please fill in all required fields before continuing.");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        nextControl.Focus();
+                    }
                 }
                 else
                 {

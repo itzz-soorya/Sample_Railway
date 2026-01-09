@@ -10,6 +10,7 @@ namespace UserModule.Models
         public string? phone_number { get; set; }
         public int number_of_persons { get; set; }
         public string? booking_type { get; set; }
+        public string? room_number { get; set; }              // Room number for Sleeper bookings
         public int total_hours { get; set; }
         public DateTime booking_date { get; set; }
         public TimeSpan in_time { get; set; }
