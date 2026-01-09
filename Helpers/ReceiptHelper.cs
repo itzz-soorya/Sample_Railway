@@ -23,7 +23,7 @@ namespace UserModule
                 {
                     Width = width,
                     Height = height,
-                    Margin = 5,
+                    Margin = 2,
                     PureBarcode = false
                 }
             };
@@ -51,6 +51,7 @@ namespace UserModule
             string note = "Thank you for your visit!",
             string hallName = "",
             string bookingType = "",
+            string poweredByNote = "Powered by AR TECHNOLOGI",
             DateTime? inTime = null)
         {
             // For Sleeper with pricing tiers, ratePerPerson already includes the hour range cost
@@ -111,7 +112,8 @@ namespace UserModule
                 stack.Children.Add(new TextBlock
                 {
                     Text = info1,
-                    FontSize = 8,
+                    FontSize = 10,
+                    FontWeight = FontWeights.SemiBold,
                     TextAlignment = TextAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Margin = new Thickness(0, 0, 0, 1)
@@ -124,7 +126,8 @@ namespace UserModule
                 stack.Children.Add(new TextBlock
                 {
                     Text = info2,
-                    FontSize = 8,
+                    FontSize = 10,
+                    FontWeight = FontWeights.SemiBold,
                     TextAlignment = TextAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Margin = new Thickness(0, 0, 0, 3)
@@ -150,11 +153,12 @@ namespace UserModule
             {
                 var grid = new Grid
                 {
-                    Margin = new Thickness(0, 1, 0, 1),
-                    HorizontalAlignment = HorizontalAlignment.Stretch
+                    Margin = new Thickness(0, 1, 4, 1),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Width = 280
                 };
                 
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(130, GridUnitType.Pixel) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110, GridUnitType.Pixel) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 
@@ -164,7 +168,8 @@ namespace UserModule
                     FontSize = 13,
                     FontWeight = isBold ? FontWeights.Bold : FontWeights.Normal,
                     Margin = new Thickness(5, 0, 0, 0),
-                    TextAlignment = TextAlignment.Left
+                    TextAlignment = TextAlignment.Left,
+                    TextTrimming = TextTrimming.CharacterEllipsis
                 };
                 Grid.SetColumn(leftBlock, 0);
                 
@@ -173,7 +178,8 @@ namespace UserModule
                     Text = ":",
                     FontSize = 13,
                     FontWeight = isBold ? FontWeights.Bold : FontWeights.Normal,
-                    Margin = new Thickness(3, 0, 8, 0)
+                    Margin = new Thickness(3, 0, 2, 0),
+                    TextAlignment = TextAlignment.Left
                 };
                 Grid.SetColumn(colonBlock, 1);
                 
@@ -182,7 +188,11 @@ namespace UserModule
                     Text = value,
                     FontSize = 13,
                     FontWeight = isBold ? FontWeights.Bold : FontWeights.Normal,
-                    TextAlignment = TextAlignment.Left
+                    TextAlignment = TextAlignment.Left,
+                    Margin = new Thickness(3, 0, 5, 0),
+                    TextWrapping = TextWrapping.WrapWithOverflow,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    MaxWidth = 150
                 };
                 Grid.SetColumn(rightBlock, 2);
                 
@@ -201,7 +211,6 @@ namespace UserModule
             // Billing details
             AddRow("Total Hours", totalHours.ToString());
             AddRow("Rate / Person", $"₹{ratePerPerson:F0}");
-            AddRow("Base Amount", $"₹{baseAmount:F0}");
             
             // Show extra charges if any
             if (extraCharges > 0)
@@ -210,15 +219,13 @@ namespace UserModule
             }
             
             AddRow("Total Amount", $"₹{totalAmount:F0}");
-            AddRow("Paid Amount", $"₹{paidAmount:F0}");
-            AddRow("Balance", $"₹{balance:F0}", isBold: true);
             
             // Add In Time and Out Time in 24-hour railway format
             DateTime currentInTime = inTime ?? DateTime.Now;
             DateTime calculatedOutTime = currentInTime.AddHours(totalHours);
             
-            AddRow("In Time", currentInTime.ToString("HH:mm"));
-            AddRow("Out Time", calculatedOutTime.ToString("HH:mm"), isLast: true);
+            AddRow("In Time", currentInTime.ToString("hh:mm tt"));
+            AddRow("Out Time", calculatedOutTime.ToString("hh:mm tt"), isLast: true);
 
             // Barcode image with higher DPI
             var barcode = new Image
@@ -226,9 +233,9 @@ namespace UserModule
                 Source = GenerateBarcodeImage(billId, width: 600, height: 120),
                 Width = 260,
                 Height = 50,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 3, 0, 2),
-                Stretch = Stretch.Uniform
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 0),
+                Stretch = Stretch.UniformToFill
             };
             stack.Children.Add(barcode);
 
@@ -242,19 +249,46 @@ namespace UserModule
                 Margin = new Thickness(0, 0, 0, 2)
             });
 
-            // Note at the bottom
+            // Note and Powered by note in one line
+            var bottomStack = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 3, 0, 3)
+            };
+
             if (!string.IsNullOrWhiteSpace(note))
             {
-                stack.Children.Add(new TextBlock
+                bottomStack.Children.Add(new TextBlock
                 {
-                    Text = $"Note: {note}",
+                    Text = note,
                     FontSize = 8,
                     Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
-                    TextAlignment = TextAlignment.Left,
-                    HorizontalAlignment = HorizontalAlignment.Left,
+                    TextAlignment = TextAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
                     TextWrapping = TextWrapping.Wrap,
-                    Margin = new Thickness(3, 3, 3, 2)
+                    Margin = new Thickness(0, 0, 0, 1),
+                    MaxWidth = 280
                 });
+            }
+
+            if (!string.IsNullOrWhiteSpace(poweredByNote))
+            {
+                bottomStack.Children.Add(new TextBlock
+                {
+                    Text = poweredByNote,
+                    FontSize = 7,
+                    Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150)),
+                    TextAlignment = TextAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 0, 0, 0),
+                    MaxWidth = 280
+                });
+            }
+
+            if (bottomStack.Children.Count > 0)
+            {
+                stack.Children.Add(bottomStack);
             }
 
             return root;
@@ -286,7 +320,7 @@ namespace UserModule
                 heading2: printerDetails.heading2,
                 info1: printerDetails.info1,
                 info2: printerDetails.info2,
-                note: printerDetails.note,
+                note: !string.IsNullOrWhiteSpace(printerDetails.note) ? printerDetails.note : "Thank you for your visit!",
                 hallName: printerDetails.hallName,
                 bookingType: booking.booking_type ?? "",
                 inTime: booking.booking_date
