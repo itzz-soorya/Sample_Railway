@@ -54,7 +54,8 @@ namespace UserModule
             string bookingType = "",
             DateTime? inTime = null,
             string proofType = "",
-            string proofValue = "")
+            string proofValue = "",
+            string outTime = "")
         {
             // Calculate base amount (before discount and extra charges)
             bool isSleeper = bookingType.Equals("Sleeper", StringComparison.OrdinalIgnoreCase) || 
@@ -78,11 +79,11 @@ namespace UserModule
             
             double balance = totalAmount - paidAmount;
 
-            // Root panel optimized for 78mm thermal paper (width ~295px at 96dpi)
+            // Root panel optimized for 78mm thermal paper (width ~315px at 96dpi)
             var root = new StackPanel
             {
                 Background = Brushes.White,
-                Width = 295,
+                Width = 315,
                 Margin = new Thickness(0, 2, 0, 2),
                 Orientation = Orientation.Vertical,
                 HorizontalAlignment = HorizontalAlignment.Stretch
@@ -100,7 +101,7 @@ namespace UserModule
                     FontWeight = FontWeights.Bold,
                     TextAlignment = TextAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 2, 0, 1)
+                    Margin = new Thickness(5, 2, 5, 1)
                 });
             }
 
@@ -114,7 +115,7 @@ namespace UserModule
                     FontWeight = FontWeights.Bold,
                     TextAlignment = TextAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 0, 0, 1)
+                    Margin = new Thickness(5, 0, 5, 1)
                 });
             }
 
@@ -157,6 +158,38 @@ namespace UserModule
                     Margin = new Thickness(0, 0, 0, 3)
                 });
             }
+
+            // Time and Date row
+            DateTime currentInTime = inTime ?? DateTime.Now;
+            var timeDateGrid = new Grid
+            {
+                Margin = new Thickness(5, 2, 5, 2),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            
+            var timeBlock = new TextBlock
+            {
+                Text = $"Time: {currentInTime.ToString("HH:mm")}",
+                FontSize = 10,
+                TextAlignment = TextAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 0)
+            };
+            Grid.SetColumn(timeBlock, 0);
+            
+            var dateBlock = new TextBlock
+            {
+                Text = currentInTime.ToString("dd/MM/yyyy"),
+                FontSize = 10,
+                TextAlignment = TextAlignment.Right,
+                Margin = new Thickness(0, 0, 0, 0)
+            };
+            Grid.SetColumn(dateBlock, 1);
+            
+            timeDateGrid.Children.Add(timeBlock);
+            timeDateGrid.Children.Add(dateBlock);
+            stack.Children.Add(timeDateGrid);
 
             // Helper function to add key-value rows with minimal spacing
             void AddRow(string label, string value, bool isLast = false, bool isBold = false)
@@ -205,67 +238,49 @@ namespace UserModule
                 stack.Children.Add(grid);
             }
 
-            // Customer details in key-value format
+            // Customer details
             AddRow("Name", customerName);
             AddRow("Phone", phoneNo);
-            AddRow("Date", (inTime ?? DateTime.Now).ToString("dd-MM-yyyy"));
-            AddRow("Persons", persons.ToString());
             
-            // Proof details
-            if (!string.IsNullOrWhiteSpace(proofType))
+            // Proof details (combined format: "aadhar: 21221212")
+            if (!string.IsNullOrWhiteSpace(proofType) && !string.IsNullOrWhiteSpace(proofValue))
             {
-                AddRow("Proof Type", proofType);
-            }
-            if (!string.IsNullOrWhiteSpace(proofValue))
-            {
-                AddRow("Proof Value", proofValue);
+                AddRow(proofType, proofValue);
             }
 
             // Billing details
+            AddRow("Persons", persons.ToString());
             AddRow("Total Hours", totalHours.ToString());
             AddRow("Rate / Person", $"₹{ratePerPerson:F0}");
-            AddRow("Base Amount", $"₹{baseAmount:F0}");
-            
-            // Show extra charges if any
-            if (extraCharges > 0)
-            {
-                AddRow("Extra Charges", $"₹{extraCharges:F0}");
-            }
-            
-            AddRow("Total Amount", $"₹{totalAmount:F0}");
-            AddRow("Paid Amount", $"₹{paidAmount:F0}");
-            AddRow("Balance", $"₹{balance:F0}", isBold: true);
-            
-            // Add In Time and Out Time in 24-hour railway format
-            DateTime currentInTime = inTime ?? DateTime.Now;
-            DateTime calculatedOutTime = currentInTime.AddHours(totalHours);
-            
-            AddRow("In Time", currentInTime.ToString("HH:mm"));
-            AddRow("Out Time", calculatedOutTime.ToString("HH:mm"), isLast: true);
+            AddRow("Total Amount", $"₹{totalAmount:F0}", isBold: true);
 
-            // Barcode image with higher DPI
+            // Out time (centered and bold)
+            if (!string.IsNullOrWhiteSpace(outTime))
+            {
+                stack.Children.Add(new TextBlock
+                {
+                    Text = $"Out Time: {outTime}",
+                    FontSize = 11,
+                    FontWeight = FontWeights.Bold,
+                    TextAlignment = TextAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 3, 0, 3)
+                });
+            }
+
+            // Barcode image left-aligned
             var barcode = new Image
             {
                 Source = GenerateBarcodeImage(billId, width: 600, height: 120),
                 Width = 260,
                 Height = 50,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 3, 0, 2),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(5, 3, 0, 2),
                 Stretch = Stretch.Uniform
             };
             stack.Children.Add(barcode);
 
-            stack.Children.Add(new TextBlock
-            {
-                Text = "Scan to close the bill",
-                FontSize = 8,
-                Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
-                TextAlignment = TextAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 2)
-            });
-
-            // Note at the bottom
+            // Note at the bottom (left-aligned)
             if (!string.IsNullOrWhiteSpace(note))
             {
                 stack.Children.Add(new TextBlock
@@ -316,7 +331,8 @@ namespace UserModule
                 bookingType: booking.booking_type ?? "",
                 inTime: booking.booking_date,
                 proofType: booking.proof_type ?? "",
-                proofValue: booking.proof_id ?? ""
+                proofValue: booking.proof_id ?? "",
+                outTime: booking.out_time.HasValue ? booking.out_time.Value.ToString(@"hh\:mm") : ""
             );
 
             // Optionally save to PNG file for record
