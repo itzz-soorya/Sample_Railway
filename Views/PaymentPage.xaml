@@ -1,0 +1,268 @@
+﻿<UserControl x:Class="UserModule.PaymentPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="400" Height="600" Background="White">
+    
+    <!-- Main ScrollViewer for entire PaymentPage -->
+    <ScrollViewer x:Name="PaymentScrollViewer"
+                  VerticalScrollBarVisibility="Auto" 
+                  HorizontalScrollBarVisibility="Disabled"
+                  PanningMode="VerticalFirst"
+                  CanContentScroll="False"
+                  IsDeferredScrollingEnabled="False">
+        
+        <Grid Margin="0,0,0,50">
+            <Border Background="White" CornerRadius="8" Margin="15" Padding="20"
+                    BorderBrush="#333333" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Payment Method Section -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,25" Background="Transparent">
+                        <TextBlock Text="Select Payment Method" FontSize="14" FontWeight="Bold" 
+                    Foreground="#333" Margin="0,0,0,8"/>
+                        <ComboBox x:Name="PaymentTypeComboBox" Height="40" FontSize="14"
+                   Background="White" BorderBrush="#E0E0E0" BorderThickness="1"
+                   Padding="12,0" >
+                            <ComboBox.Style>
+                                <Style TargetType="ComboBox">
+                                    <Setter Property="Background" Value="White"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ComboBox">
+                                                <Grid>
+                                                    <ToggleButton x:Name="ToggleButton" 
+                                                   Background="White"
+                                                   BorderBrush="#E0E0E0"
+                                                   BorderThickness="1"
+                                                   Focusable="False"
+                                                   IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                   ClickMode="Press">
+                                                        <ToggleButton.Style>
+                                                            <Style TargetType="ToggleButton">
+                                                                <Setter Property="Background" Value="White"/>
+                                                                <Setter Property="Template">
+                                                                    <Setter.Value>
+                                                                        <ControlTemplate TargetType="ToggleButton">
+                                                                            <Border Background="White" 
+                                                                     BorderBrush="#E0E0E0" 
+                                                                     BorderThickness="1"
+                                                                     CornerRadius="4">
+                                                                                <Grid>
+                                                                                    <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition/>
+                                                                                        <ColumnDefinition Width="30"/>
+                                                                                    </Grid.ColumnDefinitions>
+                                                                                    <Path x:Name="Arrow" Grid.Column="1"
+                                                                           Fill="#666" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                           Data="M 0 0 L 4 4 L 8 0 Z"/>
+                                                                                </Grid>
+                                                                            </Border>
+                                                                        </ControlTemplate>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </Style>
+                                                        </ToggleButton.Style>
+                                                    </ToggleButton>
+                                                    <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
+                                                       Content="{TemplateBinding SelectionBoxItem}"
+                                                       ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                       ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                       Margin="12,0,30,0"
+                                                       VerticalAlignment="Center"
+                                                       HorizontalAlignment="Left"/>
+                                                    <Popup x:Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}"
+                                            AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                                        <Grid x:Name="DropDown" SnapsToDevicePixels="True"
+                                               MinWidth="{TemplateBinding ActualWidth}"
+                                               MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                                            <Border x:Name="DropDownBorder" Background="White" 
+                                                     BorderThickness="1" BorderBrush="#E0E0E0"
+                                                     CornerRadius="4"/>
+                                                            <ScrollViewer Margin="4,6,4,6" SnapsToDevicePixels="True">
+                                                                <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"
+                                                             Background="White"/>
+                                                            </ScrollViewer>
+                                                        </Grid>
+                                                    </Popup>
+                                                </Grid>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ComboBox.Style>
+                            <ComboBoxItem Content="Selected" IsSelected="True">
+
+                                <ComboBoxItem.Style>
+                                    <Style TargetType="ComboBoxItem">
+                                        <Setter Property="Background" Value="White"/>
+                                        <Setter Property="Padding" Value="12,8"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#F0F0F0"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#E6F0FE"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ComboBoxItem.Style>
+                            </ComboBoxItem>
+                            <ComboBoxItem Content="Card">
+                                <ComboBoxItem.Style>
+                                    <Style TargetType="ComboBoxItem">
+                                        <Setter Property="Background" Value="White"/>
+                                        <Setter Property="Padding" Value="12,8"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#F0F0F0"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#E6F0FE"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ComboBoxItem.Style>
+                            </ComboBoxItem>
+                            <ComboBoxItem Content="UPI">
+                                <ComboBoxItem.Style>
+                                    <Style TargetType="ComboBoxItem">
+                                        <Setter Property="Background" Value="White"/>
+                                        <Setter Property="Padding" Value="12,8"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#F0F0F0"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#E6F0FE"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ComboBoxItem.Style>
+                            </ComboBoxItem>
+                        </ComboBox>
+                    </StackPanel>
+
+
+                    <!-- Header Section -->
+                    <StackPanel Grid.Row="1" Margin="0,0,0,15">
+                        <TextBlock x:Name="CustomerNameText" FontWeight="Bold" FontSize="18" Foreground="#333"/>
+                        <TextBlock x:Name="BillIdText" FontSize="14" Foreground="#666"/>
+                    </StackPanel>
+
+                    <!-- Date & Time Section -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,20">
+                        <TextBlock x:Name="DateText" FontSize="14" Foreground="#666" Margin="0,0,20,0"/>
+                        <TextBlock x:Name="TimeText" FontSize="14" Foreground="#666"/>
+                    </StackPanel>
+
+                    <!-- Bill Details Section -->
+                    <Border Grid.Row="3" Background="#F8F9FA" CornerRadius="8" Padding="15" Margin="0,0,0,20">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="Total Hours" FontSize="14" Foreground="#333"/>
+                                <TextBlock x:Name="TotalHoursText" FontSize="14" Foreground="#333" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="Out Time" FontSize="14" Foreground="#333"/>
+                                <TextBlock x:Name="OutTimeText" FontSize="14" Foreground="#333" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="Persons" FontSize="14" Foreground="#333"/>
+                                <TextBlock x:Name="PersonsText" FontSize="14" Foreground="#333" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="Rate" FontSize="14" Foreground="#333"/>
+                                <TextBlock x:Name="RateText" FontSize="14" Foreground="#333" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="Paid Amount" FontSize="14" Foreground="#333"/>
+                                <TextBlock x:Name="PaidAmountText" FontSize="14" Foreground="#333" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,0,0,15">
+                                <TextBlock Text="Balance" FontSize="14" Foreground="#333"/>
+                                <TextBlock x:Name="BalanceText" FontSize="14" Foreground="#333" HorizontalAlignment="Right"/>
+                            </Grid>
+
+                            <Rectangle Height="1" Fill="#E0E0E0" Margin="0,0,0,15"/>
+                            <Grid>
+                                <TextBlock Text="Total Payment" FontSize="16" FontWeight="Bold" Foreground="#333"/>
+                                <TextBlock x:Name="TotalPaymentText" FontSize="16" FontWeight="Bold" Foreground="#333" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Buttons Section -->
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Back" Width="100" Height="40" 
+                                Background="#F8F9FA" Foreground="#4386C6" 
+                                FontWeight="SemiBold" FontSize="14"  Click="BackButton_Click"
+                                BorderBrush="#E0E0E0" BorderThickness="1"
+                                Margin="0,0,12,0">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="6">
+                                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                                      VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#E6F0FE"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+
+                        <Button Content="Close" Width="100" Height="40" 
+                                Background="#232323"  Foreground="White" 
+                                FontWeight="SemiBold" FontSize="14" Click="CloseButton_Click"
+                                BorderThickness="0">
+                            <Button.Style>
+                                <Style TargetType="{x:Type Button}">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="{x:Type Button}">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="6">
+                                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                                      VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#232323" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
+
+                </Grid>
+            </Border>
+
+            
+
+        </Grid>
+    </ScrollViewer>
+</UserControl>

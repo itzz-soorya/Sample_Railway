@@ -1,0 +1,42 @@
+﻿<UserControl x:Class="UserModule.BillForm"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#F7F7F7"
+             Width="400" Height="180">
+
+    <Border Background="White"
+            CornerRadius="8"
+            Margin="20"
+            Padding="10">
+        <Grid>
+            <!-- Close Button -->
+            <Button Content="✕"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="Transparent"
+                    Foreground="Gray"
+                    FontWeight="Bold"
+                    BorderThickness="0"
+                    FontSize="16"
+                    Click="Close_Click"/>
+
+            <!-- Centered message -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="Ready to Scan"
+                           FontSize="22"
+                           FontWeight="Bold"
+                           Foreground="#232323"
+                           TextAlignment="Center"/>
+                <TextBlock Text="Scan a Bill ID to complete the booking"
+                           FontSize="14"
+                           Foreground="Gray"
+                           TextAlignment="Center"
+                           Margin="0,10,0,0"/>
+                <!-- Hidden TextBox for scanner input -->
+                <TextBox x:Name="txtBillID"
+                         Visibility="Collapsed"
+                         KeyDown="txtBillID_KeyDown"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

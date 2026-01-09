@@ -1,0 +1,274 @@
+<UserControl x:Class="UserModule.ScanBillingControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="900" Height="500">
+
+    <UserControl.Resources>
+        <Style x:Key="RoundedTextBoxStyle" TargetType="TextBox">
+            <Setter Property="BorderBrush" Value="#999999"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd"
+                                CornerRadius="4"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="RoundedComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#999999"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+    </UserControl.Resources>
+
+    <!-- Main ScrollViewer for entire ScanBillingControl -->
+    <ScrollViewer x:Name="ScanBillingScrollViewer"
+                  VerticalScrollBarVisibility="Auto" 
+                  HorizontalScrollBarVisibility="Disabled"
+                  PanningMode="VerticalOnly"
+                  CanContentScroll="True">
+        
+        <Border Background="White" CornerRadius="10" BorderBrush="#DDD" BorderThickness="1" Margin="0,0,0,50">
+            <Grid Margin="30">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                    <TextBlock Text="Complete Billing" 
+                               FontSize="24" 
+                               FontWeight="Bold" 
+                               Foreground="#232323"/>
+                    <TextBlock Text="Scan the bill barcode to proceed" 
+                               FontSize="14" 
+                               Foreground="#666" 
+                               Margin="0,5,0,0"/>
+                </StackPanel>
+
+                <!-- Main Content -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left Side - Scan Section -->
+                    <StackPanel x:Name="ScanSection" Grid.Column="0">
+                        <TextBlock Text="Bill ID" 
+                                   FontWeight="SemiBold" 
+                                   FontSize="14" 
+                                   Foreground="#333" 
+                                   Margin="0,0,0,8"/>
+                        <TextBox x:Name="txtBillId" 
+                                 Style="{StaticResource RoundedTextBoxStyle}"
+                                 Height="40"
+                                 Foreground="#333"
+                                 PreviewKeyDown="txtBillId_PreviewKeyDown"
+                                 TextChanged="txtBillId_TextChanged"/>
+                        <TextBlock x:Name="errBillId" 
+                                   Text="* Invalid Bill ID" 
+                                   Foreground="#CC1F1F" 
+                                   FontSize="12" 
+                                   Visibility="Collapsed" 
+                                   Margin="5,5,0,0"/>
+                        
+                        <Border Background="#F0F8FF" 
+                                CornerRadius="6" 
+                                Padding="15" 
+                                Margin="0,20,0,0">
+                            <StackPanel>
+                                <Image Source="/Scan.png" 
+                                       Width="60" 
+                                       Height="60" 
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,10"/>
+                                <TextBlock Text="Focus on the field above" 
+                                           FontSize="13" 
+                                           FontWeight="SemiBold"
+                                           Foreground="#333" 
+                                           TextAlignment="Center"/>
+                                <TextBlock Text="and scan the barcode" 
+                                           FontSize="13" 
+                                           Foreground="#666" 
+                                           TextAlignment="Center"
+                                           Margin="0,5,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Right Side - Billing Details (Hidden initially) -->
+                    <StackPanel x:Name="BillingDetailsSection" 
+                                Grid.Column="2" 
+                                Visibility="Collapsed">
+                        
+                        <!-- Customer Info Display -->
+                        <Border Background="#F7F7F7" 
+                                CornerRadius="6" 
+                                Padding="15" 
+                                Margin="0,0,0,20">
+                            <StackPanel>
+                                <TextBlock x:Name="txtCustomerName" 
+                                           Text="Customer Name" 
+                                           FontSize="16" 
+                                           FontWeight="SemiBold" 
+                                           Foreground="#333"/>
+                                <TextBlock x:Name="txtCustomerPhone" 
+                                           Text="Phone: " 
+                                           FontSize="12" 
+                                           Foreground="#666" 
+                                           Margin="0,5,0,0"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                    <TextBlock x:Name="txtSeatType" 
+                                               Text="Seat Type" 
+                                               FontSize="12" 
+                                               Foreground="#666"/>
+                                    <TextBlock Text=" • " 
+                                               FontSize="12" 
+                                               Foreground="#666" 
+                                               Margin="5,0"/>
+                                    <TextBlock x:Name="txtTotalAmount" 
+                                               Text="Total: ₹0" 
+                                               FontSize="12" 
+                                               Foreground="#666"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Balance Amount -->
+                        <StackPanel Margin="0,0,0,15">
+                            <TextBlock Text="Balance Amount (₹)" 
+                                       FontWeight="SemiBold" 
+                                       FontSize="14" 
+                                       Foreground="#333" 
+                                       Margin="0,0,0,8"/>
+                            <TextBox x:Name="txtBalanceAmount" 
+                                     Style="{StaticResource RoundedTextBoxStyle}"
+                                     Height="40"
+                                     Foreground="#333"
+                                     IsReadOnly="True"
+                                     Background="#F5F5F5"/>
+                            <!-- Overtime Details -->
+                            <TextBlock x:Name="txtOvertimeDetails" 
+                                       Text="Overtime charges" 
+                                       Foreground="#FF6B35" 
+                                       FontSize="11" 
+                                       FontWeight="SemiBold"
+                                       Visibility="Collapsed" 
+                                       Margin="5,5,0,0"/>
+                        </StackPanel>
+
+                        <!-- Time Display -->
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- In Time -->
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="In Time" 
+                                           FontWeight="SemiBold" 
+                                           FontSize="14" 
+                                           Foreground="#333" 
+                                           Margin="0,0,0,8"/>
+                                <TextBox x:Name="txtInTime" 
+                                         Style="{StaticResource RoundedTextBoxStyle}"
+                                         Height="40"
+                                         Foreground="#333"
+                                         IsReadOnly="True"
+                                         Background="#F5F5F5"/>
+                            </StackPanel>
+
+                            <!-- Out Time -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Out Time" 
+                                           FontWeight="SemiBold" 
+                                           FontSize="14" 
+                                           Foreground="#333" 
+                                           Margin="0,0,0,8"/>
+                                <TextBox x:Name="txtOutTime" 
+                                         Style="{StaticResource RoundedTextBoxStyle}"
+                                         Height="40"
+                                         Foreground="#333"
+                                         IsReadOnly="True"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Payment Method -->
+                        <StackPanel Margin="0,0,0,15">
+                            <TextBlock Text="Payment Method" 
+                                       FontWeight="SemiBold" 
+                                       FontSize="14" 
+                                       Foreground="#333" 
+                                       Margin="0,0,0,8"/>
+                            <ComboBox x:Name="cmbPaymentMethod" 
+                                      Style="{StaticResource RoundedComboBoxStyle}"
+                                      SelectionChanged="cmbPaymentMethod_SelectionChanged">
+                                <ComboBoxItem Content="Select Method" IsSelected="True" IsEnabled="False"/>
+                                <ComboBoxItem Content="Cash"/>
+                                <ComboBoxItem Content="GPay"/>
+                                <ComboBoxItem Content="Card"/>
+                            </ComboBox>
+                            <TextBlock x:Name="errPaymentMethod" 
+                                       Text="* Select Payment Method" 
+                                       Foreground="#CC1F1F" 
+                                       FontSize="12" 
+                                       Visibility="Collapsed" 
+                                       Margin="5,5,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Action Buttons -->
+                <StackPanel Orientation="Horizontal" 
+                            HorizontalAlignment="Right" 
+                            Grid.Row="2" 
+                            Margin="0,20,0,0">
+                    <Button x:Name="btnSubmit" 
+                            Content="Submit" 
+                            Width="150" 
+                            Height="40" 
+                            Background="#232323" 
+                            Foreground="White" 
+                            FontSize="16" 
+                            FontWeight="SemiBold" 
+                            BorderThickness="0" 
+                            Cursor="Hand" 
+                            Margin="0,0,10,0" 
+                            Click="btnSubmit_Click"
+                            IsEnabled="False"/>
+                    <Button Content="Cancel" 
+                            Width="150" 
+                            Height="40" 
+                            Background="#BDBCBC" 
+                            Foreground="White" 
+                            FontSize="16" 
+                            FontWeight="SemiBold" 
+                            BorderThickness="0" 
+                            Cursor="Hand" 
+                            Click="btnCancel_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </ScrollViewer>
+</UserControl>

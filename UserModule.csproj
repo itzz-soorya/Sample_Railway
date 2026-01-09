@@ -1,0 +1,138 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    
+    <ApplicationIcon>assests\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Application Metadata -->
+    <AssemblyName>Railax</AssemblyName>
+    <Version>1.0.0</Version>
+    <Company>Railax</Company>
+    <Product>Railax</Product>
+    <Description>Railway Ticket Booking and Management System</Description>
+    <Copyright>Copyright © 2025</Copyright>
+    
+    <!-- Disable auto-generation of assembly attributes to prevent duplicates -->
+    <GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
+    <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
+    
+    <!-- Release Configuration -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Icon file: include as Resource for WPF Window.Icon AND copy to output for installer shortcuts -->
+    <Resource Include="assests\app.ico" />
+    <Content Include="assests\app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Remove old image references -->
+    <None Remove="Assets\Images\armchair.png" />
+    <None Remove="Assets\Images\calendar.png" />
+    <None Remove="Assets\Images\double-bed.png" />
+    <None Remove="Assets\Images\Frame.png" />
+    <None Remove="Assets\Images\logout.png" />
+    <None Remove="Assets\Images\Scan.png" />
+    <None Remove="Assets\Images\Search.png" />
+    <None Remove="Assets\Images\usericon.png" />
+    <None Remove="assests\armchair.png" />
+    <None Remove="assests\Booking.png" />
+    <None Remove="assests\calendar.png" />
+    <None Remove="assests\clock.png" />
+    <None Remove="assests\double-bed.png" />
+    <None Remove="assests\Group.png" />
+    <None Remove="assests\Person.png" />
+    <None Remove="assests\Phone.png" />
+    <None Remove="assests\Scan.png" />
+    <None Remove="assests\Search.png" />
+    <None Remove="assests\usericon.png" />
+    <None Remove="assests\Vector.png" />
+    <None Remove="Views\Dashboard.png" />
+    <None Remove="Views\NewBooking.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.10" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="System.Data.SQLite" Version="2.0.2" />
+    <PackageReference Include="System.Management" Version="9.0.10" />
+    <PackageReference Include="ZXing.Net" Version="0.16.11" />
+    <PackageReference Include="ZXing.Net.Bindings.Windows.Compatibility" Version="0.16.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- New organized image resources -->
+    <Resource Include="Assets\Images\armchair.png" />
+    <Resource Include="Assets\Images\calendar.png" />
+    <Resource Include="Assets\Images\double-bed.png" />
+    <Resource Include="Assets\Images\Frame.png" />
+    <Resource Include="Assets\Images\logout.png" />
+    <Resource Include="Assets\Images\Scan.png" />
+    <Resource Include="Assets\Images\Search.png" />
+    <Resource Include="Assets\Images\usericon.png" />
+    
+    <!-- Keep old assests folder references for backward compatibility -->
+    <Resource Include="assests\armchair.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\Booking.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\calendar.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\clock.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\double-bed.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\Group.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\Logo.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\Person.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\Phone.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\Scan.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\Search.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\usericon.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="assests\Vector.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Views\Dashboard.png" />
+    <Resource Include="Views\NewBooking.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Views\CustomMessageBox.xaml.cs">
+      <Generator>MSBuild:Compile</Generator>
+    </Compile>
+  </ItemGroup>
+
+</Project>

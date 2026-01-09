@@ -1,0 +1,172 @@
+﻿<UserControl x:Class="UserModule.Components.AlertBox"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="alertControl"
+             Height="90" Width="Auto">
+
+    <Grid>
+        <!-- INFO ALERT -->
+        <Border x:Name="InfoAlert"
+                Background="#EAF3FA"
+                BorderBrush="#2196F3"
+                BorderThickness="2"
+                CornerRadius="10"
+                Padding="10"
+                Visibility="Collapsed"
+                Margin="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Image Source="/assests/idea.png"
+                       Width="35" Height="35"
+                       Margin="5"
+                       VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Column="1"
+                           x:Name="InfoText"
+                           Text="Monthly performance report is ready"
+                           FontSize="15"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+
+                <Button Grid.Column="2"
+                        Content="✖"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="Gray"
+                        FontSize="14"
+                        Width="25"
+                        Height="25"
+                        Cursor="Hand"
+                        Click="Close_Click"/>
+            </Grid>
+        </Border>
+
+        <!-- WARNING ALERT -->
+        <Border x:Name="WarningAlert"
+                Background="#FFF4E5"
+                BorderBrush="#FFA500"
+                BorderThickness="2"
+                CornerRadius="10"
+                Padding="10"
+                Visibility="Collapsed"
+                Margin="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Image Source="/assests/Alert.png"
+                       Width="35" Height="35"
+                       Margin="5"
+                       VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Column="1"
+                           x:Name="WarningText"
+                           Text="Memberships expiring soon!"
+                           FontSize="15"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+
+                <Button Grid.Column="2"
+                        Content="✖"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="Gray"
+                        FontSize="14"
+                        Width="25"
+                        Height="25"
+                        Cursor="Hand"
+                        Click="Close_Click"/>
+            </Grid>
+        </Border>
+
+        <!-- ERROR ALERT -->
+        <Border x:Name="ErrorAlert"
+                Background="#FDECEA"
+                BorderBrush="#F44336"
+                BorderThickness="2"
+                CornerRadius="10"
+                Padding="10"
+                Visibility="Collapsed"
+                Margin="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Image Source="/assests/close.png"
+                       Width="35" Height="35"
+                       Margin="5"
+                       VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Column="1"
+                           x:Name="ErrorText"
+                           Text="Payment processing error!"
+                           FontSize="15"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+
+                <Button Grid.Column="2"
+                        Content="✖"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="Gray"
+                        FontSize="14"
+                        Width="25"
+                        Height="25"
+                        Cursor="Hand"
+                        Click="Close_Click"/>
+            </Grid>
+        </Border>
+
+        <!-- SUCCESS ALERT -->
+        <Border x:Name="SuccessAlert"
+                Background="#E6F4EA"
+                BorderBrush="#4CAF50"
+                BorderThickness="2"
+                CornerRadius="10"
+                Padding="10"
+                Visibility="Collapsed"
+                Margin="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Image Source="/assests/success.png"
+                       Width="35" Height="35"
+                       Margin="5"
+                       VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Column="1"
+                           x:Name="SuccessText"
+                           Text="New member account created successfully!"
+                           FontSize="15"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+
+                <Button Grid.Column="2"
+                        Content="✖"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="Gray"
+                        FontSize="14"
+                        Width="25"
+                        Height="25"
+                        Cursor="Hand"
+                        Click="Close_Click"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
