@@ -59,7 +59,6 @@ namespace UserModule
             txtFirstName.TextChanged += (s, e) => errCustomer.Visibility = Visibility.Collapsed;
             txtPhone.TextChanged += (s, e) => errPhone.Visibility = Visibility.Collapsed;
             txtPersons.TextChanged += (s, e) => errPersons.Visibility = Visibility.Collapsed;
-            txtPaid.TextChanged += (s, e) => errPaid.Visibility = Visibility.Collapsed;
             txtIdNumber.TextChanged += (s, e) => errIdNumber.Visibility = Visibility.Collapsed;
 
             // Reset Enter count when ID number changes
@@ -71,7 +70,6 @@ namespace UserModule
 
             // Change TextBox foreground color based on content
             txtFirstName.TextChanged += TextBox_ForegroundColorChanged;
-            txtLastName.TextChanged += TextBox_ForegroundColorChanged;
             txtPhone.TextChanged += TextBox_ForegroundColorChanged;
             txtPersons.TextChanged += TextBox_ForegroundColorChanged;
             txtIdNumber.TextChanged += TextBox_ForegroundColorChanged;
@@ -97,19 +95,6 @@ namespace UserModule
                 else
                 {
                     txtBookingID.Text = "";
-                }
-            };
-
-            // ✅ Prevent Paid from exceeding Total
-            txtPaid.TextChanged += (s, e) =>
-            {
-                if (decimal.TryParse(txtPaid.Text, out decimal paid) &&
-                    decimal.TryParse(txtTotalAmount.Text, out decimal total) &&
-                    paid > total)
-                {
-                    ShowAlert("warning", "Advance amount cannot exceed the total amount!");
-                    txtPaid.Text = total.ToString("0.##");
-                    txtPaid.SelectionStart = txtPaid.Text.Length;
                 }
             };
 
@@ -285,7 +270,6 @@ namespace UserModule
         private void CustomerName_TextChanged(object sender, TextChangedEventArgs e)
         {
             string firstName = txtFirstName.Text.Trim();
-            string lastName = txtLastName.Text.Trim();
 
             if (string.IsNullOrEmpty(firstName))
             {
@@ -296,14 +280,8 @@ namespace UserModule
             {
                 errCustomer.Visibility = Visibility.Collapsed;
 
-                if (string.IsNullOrEmpty(lastName))
-                {
-                    txtCustomer.Text = firstName;
-                }
-                else
-                {
-                    txtCustomer.Text = $"{firstName} {lastName}";
-                }
+                // Use only first name, last name is always empty
+                txtCustomer.Text = firstName;
             }
         }
 
@@ -961,7 +939,6 @@ namespace UserModule
             txtBookingID.Text = string.Empty;
             txtRate.Text = string.Empty;
             txtTotalAmount.Text = string.Empty;
-            txtPaid.Text = string.Empty;
 
             // Reset ComboBoxes
             txtSeats.SelectedIndex = 0;
@@ -992,7 +969,6 @@ namespace UserModule
             {
                 txtRate.Text = "0";
                 txtTotalAmount.Text = "0";
-                txtPaid.Text = "0";
                 return;
             }
 
@@ -1004,7 +980,6 @@ namespace UserModule
             {
                 txtRate.Text = "0";
                 txtTotalAmount.Text = "0";
-                txtPaid.Text = "0";
                 return;
             }
 
@@ -1026,7 +1001,6 @@ namespace UserModule
                 {
                     txtRate.Text = "0";
                     txtTotalAmount.Text = "0";
-                    txtPaid.Text = "0";
                     return;
                 }
 
@@ -1040,7 +1014,6 @@ namespace UserModule
                         "Rate Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
                     txtRate.Text = "0";
                     txtTotalAmount.Text = "0";
-                    txtPaid.Text = "0";
                     return;
                 }
 
@@ -1158,7 +1131,7 @@ namespace UserModule
 
                 int persons = int.TryParse(txtPersons.Text, out var parsedPersons) ? parsedPersons : 0;
                 decimal rate = decimal.TryParse(txtRate.Text, out var r) ? r : 0;
-                decimal paidAmount = decimal.TryParse(txtPaid.Text, out var pa) ? pa : 0;
+                decimal paidAmount = 0; // No advance amount
 
 
                 decimal totalAmount = decimal.TryParse(txtTotalAmount.Text, out var t) ? t : 0;
@@ -1289,13 +1262,11 @@ namespace UserModule
 
             // Clear all textboxes
             txtFirstName.Text = string.Empty;
-            txtLastName.Text = string.Empty;
             txtCustomer.Text = string.Empty;
             txtPhone.Text = string.Empty;
             txtPersons.Text = string.Empty;
             txtRate.Text = string.Empty;
             txtTotalAmount.Text = string.Empty;
-            txtPaid.Text = string.Empty;
             txtIdNumber.Text = string.Empty;
             txtBookingID.Text = string.Empty;
 
@@ -1314,7 +1285,6 @@ namespace UserModule
             SetForegroundColor(txtHours, true);
             SetForegroundColor(cmbIdType, true);
             SetForegroundColor(txtFirstName, true);
-            SetForegroundColor(txtLastName, true);
             SetForegroundColor(txtPhone, true);
             SetForegroundColor(txtPersons, true);
             SetForegroundColor(txtIdNumber, true);
@@ -1328,7 +1298,6 @@ namespace UserModule
             errPersons.Visibility = Visibility.Collapsed;
             errSeats.Visibility = Visibility.Collapsed;
             errHours.Visibility = Visibility.Collapsed;
-            errPaid.Visibility = Visibility.Collapsed;
             errIdType.Visibility = Visibility.Collapsed;
             errIdNumber.Visibility = Visibility.Collapsed;
 
@@ -1350,7 +1319,6 @@ namespace UserModule
             errPersons.Visibility = Visibility.Collapsed;
             errSeats.Visibility = Visibility.Collapsed;
             errHours.Visibility = Visibility.Collapsed;
-            errPaid.Visibility = Visibility.Collapsed;
             errIdType.Visibility = Visibility.Collapsed;
             errIdNumber.Visibility = Visibility.Collapsed;
 
@@ -1433,29 +1401,6 @@ namespace UserModule
                 }
             }
 
-            // Validate Advance Amount (only if visible and enabled)
-            if (pnlAdvanceAmount.Visibility == Visibility.Visible)
-            {
-                // Default to 0 if empty
-                if (string.IsNullOrWhiteSpace(txtPaid.Text))
-                {
-                    txtPaid.Text = "0";
-                }
-                
-                if (!decimal.TryParse(txtPaid.Text, out decimal paid) || paid < 0)
-                {
-                    errPaid.Visibility = Visibility.Visible;
-                    isValid = false;
-                }
-                else if (decimal.TryParse(txtTotalAmount.Text, out decimal total) && paid > total)
-                {
-                    MessageBox.Show("Advance amount cannot exceed the total amount after discount.", 
-                        "Invalid Advance Amount", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    errPaid.Visibility = Visibility.Visible;
-                    isValid = false;
-                }
-            }
-
             // Validate ID Type
             if (cmbIdType.SelectedItem is ComboBoxItem idItem)
             {
@@ -1490,7 +1435,6 @@ namespace UserModule
 
             // Clear all input fields
             txtFirstName.Text = string.Empty;
-            txtLastName.Text = string.Empty;
             txtCustomer.Text = string.Empty;
             txtPhone.Text = string.Empty;
             txtPersons.Text = string.Empty;
@@ -1498,7 +1442,6 @@ namespace UserModule
             txtRate.Text = string.Empty;
             txtTotalAmount.Text = string.Empty;
             txtDiscount.Text = string.Empty;
-            txtPaid.Text = string.Empty;
             txtIdNumber.Text = string.Empty;
 
             // Reset ComboBoxes to placeholder
@@ -1515,7 +1458,6 @@ namespace UserModule
             errPersons.Visibility = Visibility.Collapsed;
             errSeats.Visibility = Visibility.Collapsed;
             errHours.Visibility = Visibility.Collapsed;
-            errPaid.Visibility = Visibility.Collapsed;
             errIdType.Visibility = Visibility.Collapsed;
             errIdNumber.Visibility = Visibility.Collapsed;
 
@@ -1605,7 +1547,7 @@ namespace UserModule
                 // Define the sequential order of controls
                 var controlOrder = new Control[]
                 {
-                    txtFirstName, txtLastName, txtPhone, txtPersons, txtSeats, txtHours, cmbIdType, txtIdNumber
+                    txtFirstName, txtPhone, txtPersons, txtSeats, txtHours, cmbIdType, txtIdNumber
                 };
 
                 // Find current control index
@@ -1620,9 +1562,9 @@ namespace UserModule
                     GenerateBillIDFromPhone();
                 }
 
-                // Validate current control (except txtLastName which is optional)
+                // Validate current control
                 var currentControl = controlOrder[currentIndex];
-                if (currentControl != txtLastName && !ValidateControl(currentControl))
+                if (!ValidateControl(currentControl))
                 {
                     // Stay on current control if validation fails
                     currentControl.Focus();
@@ -1753,9 +1695,6 @@ namespace UserModule
             // Load booking types from local database
             LoadBookingTypesFromDatabase();
             
-            // Load settings and configure advance payment visibility
-            LoadSettingsAndConfigureAdvancePayment();
-            
             // Initialize the hours dropdown to show placeholder
             if (txtHours.SelectedIndex == -1)
             {
@@ -1768,7 +1707,6 @@ namespace UserModule
             
             // Initialize TextBox foreground colors to grey (placeholder state)
             SetForegroundColor(txtFirstName, true);
-            SetForegroundColor(txtLastName, true);
             SetForegroundColor(txtPhone, true);
             SetForegroundColor(txtPersons, true);
             SetForegroundColor(txtIdNumber, true);
@@ -1929,43 +1867,6 @@ namespace UserModule
         }
 
         /// <summary>
-        /// Load settings and configure advance payment visibility
-        /// </summary>
-        private void LoadSettingsAndConfigureAdvancePayment()
-        {
-            try
-            {
-                var settings = OfflineBookingStorage.GetSettings();
-                
-                if (settings != null)
-                {
-                    // Show/hide advance payment field based on settings
-                    if (settings.AdvancePaymentEnabled)
-                    {
-                        pnlAdvanceAmount.Visibility = Visibility.Visible;
-                        Logger.Log($"Advance payment enabled with default percentage: {settings.DefaultAdvancePercentage}%");
-                    }
-                    else
-                    {
-                        pnlAdvanceAmount.Visibility = Visibility.Collapsed;
-                        Logger.Log("Advance payment disabled");
-                    }
-                }
-                else
-                {
-                    // No settings found, hide advance payment
-                    pnlAdvanceAmount.Visibility = Visibility.Collapsed;
-                    Logger.Log("No settings found, hiding advance payment field");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex);
-                pnlAdvanceAmount.Visibility = Visibility.Collapsed;
-            }
-        }
-
-        /// <summary>
         /// Handle discount text changed - recalculate total and advance
         /// </summary>
         private void txtDiscount_TextChanged(object sender, TextChangedEventArgs e)
@@ -2041,9 +1942,6 @@ namespace UserModule
                 
                 // Update total amount display
                 txtTotalAmount.Text = finalTotal.ToString("0.00");
-
-                // Clear advance amount (users can manually enter if needed)
-                txtPaid.Text = "";
             }
             catch (Exception ex)
             {

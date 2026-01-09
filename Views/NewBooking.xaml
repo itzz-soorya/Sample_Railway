@@ -353,8 +353,9 @@
                      Grid.ColumnSpan="2"
                      HorizontalAlignment="Left"
                      Margin="0,0,0,12"/>
+                    
                     <!-- First Name -->
-                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,30,15,20">
+                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,15,20">
                         <TextBlock Text="First Name"
                    FontWeight="SemiBold"
                    FontSize="14"
@@ -378,42 +379,25 @@
                    Margin="5,2,0,0"/>
                     </StackPanel>
 
-                    <!-- Last Name -->
-                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="15,30,0,20">
-                        <TextBlock Text="Last Name"
-                   FontWeight="SemiBold"
-                   FontSize="14"
-                   Foreground="#333"
-                   Margin="0,0,0,8"/>
-                        <TextBox x:Name="txtLastName"
-                 Style="{StaticResource RoundedWatermarkTextBoxStyle}"
-                 Tag="Enter last name"
-                 Height="40"
-                 Foreground="Black"
-                 FontWeight="DemiBold"
-                 PreviewKeyDown="Control_PreviewKeyDown"
-                 PreviewTextInput="UppercaseOnly_PreviewTextInput"
-                 DataObject.Pasting="UppercaseOnly_Pasting"
-                 TextChanged="CustomerName_TextChanged"/>
-                    </StackPanel>
-
                     <!-- Hidden combined field -->
                     <TextBox x:Name="txtCustomer" Visibility="Collapsed"/>
 
                     <!-- Phone Number -->
-                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,15,20" Background="Transparent">
+                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="15,0,0,20" Background="Transparent">
                         <TextBlock Text="Phone Number" FontWeight="SemiBold" FontSize="14" Foreground="#333" Margin="0,0,0,8"/>
                         <TextBox x:Name="txtPhone" Style="{StaticResource RoundedWatermarkTextBoxStyle}" Tag="+91 902 543 xxxx" Foreground="Black" FontWeight="DemiBold" Height="40"  MaxLength="10" PreviewKeyDown="Control_PreviewKeyDown" PreviewTextInput="NumbersOnly_PreviewTextInput" DataObject.Pasting="NumbersOnly_Pasting"/>
                         <TextBlock x:Name="errPhone" Text="* Fill Phone Number" Foreground="#CC1F1F" FontSize="12" Visibility="Collapsed" Margin="5,2,0,0"/>
                     </StackPanel>
+                    
                     <!-- Number of Persons -->
-                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="15,0,0,20" Background="Transparent">
+                    <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,15,20" Background="Transparent">
                         <TextBlock Text="Number of Persons" FontWeight="SemiBold" FontSize="14" Foreground="#333" Margin="0,0,0,8"/>
                         <TextBox x:Name="txtPersons" Style="{StaticResource RoundedWatermarkTextBoxStyle}" Tag="Enter number" Foreground="Black" FontWeight="DemiBold" Height="40" PreviewKeyDown="Control_PreviewKeyDown" PreviewTextInput="NumbersOnly_PreviewTextInput" DataObject.Pasting="NumbersOnly_Pasting"/>
                         <TextBlock x:Name="errPersons" Text="* Fill Number of Persons" Foreground="#CC1F1F" FontSize="12" Visibility="Collapsed" Margin="5,2,0,0"/>
                     </StackPanel>
+                    
                     <!-- Booking Details Section -->
-                    <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="0,0,0,20" HorizontalAlignment="Stretch" Background="Transparent">
+                    <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Margin="0,0,0,20" HorizontalAlignment="Stretch" Background="Transparent">
                         <!-- Header -->
                         <TextBlock Text="Booking Details"
                FontWeight="SemiBold"
@@ -559,19 +543,6 @@
                                     PreviewKeyDown="Control_PreviewKeyDown"
                                     DataObject.Pasting="NumbersOnly_Pasting"
                                     TextChanged="txtDiscount_TextChanged"/>
-                            </StackPanel>
-                            
-                            <!-- Advance Amount (conditionally visible) -->
-                            <StackPanel x:Name="pnlAdvanceAmount" Grid.Column="3" Margin="10,0,0,0" Background="Transparent" Visibility="Collapsed">
-                                <TextBlock Text="Advance Amount (₹)" FontSize="13" FontWeight="SemiBold" Foreground="#333" Margin="0,0,0,8"/>
-                                <TextBox x:Name="txtPaid" 
-                                    Style="{StaticResource RoundedWatermarkTextBoxStyle}" 
-                                    Foreground="Black" FontWeight="DemiBold" 
-                                    Tag="0" 
-                                    Height="40" 
-                                    Background="White"
-                                    BorderBrush="#CCCCCC"/>
-                                <TextBlock x:Name="errPaid" Text="* Fill Advance Amount" Foreground="#CC1F1F" FontSize="12" Visibility="Collapsed" Margin="5,2,0,0"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>

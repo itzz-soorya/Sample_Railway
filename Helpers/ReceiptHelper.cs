@@ -52,7 +52,9 @@ namespace UserModule
             string note = "Thank you for your visit!",
             string hallName = "",
             string bookingType = "",
-            DateTime? inTime = null)
+            DateTime? inTime = null,
+            string proofType = "",
+            string proofValue = "")
         {
             // Calculate base amount (before discount and extra charges)
             bool isSleeper = bookingType.Equals("Sleeper", StringComparison.OrdinalIgnoreCase) || 
@@ -208,6 +210,16 @@ namespace UserModule
             AddRow("Phone", phoneNo);
             AddRow("Date", (inTime ?? DateTime.Now).ToString("dd-MM-yyyy"));
             AddRow("Persons", persons.ToString());
+            
+            // Proof details
+            if (!string.IsNullOrWhiteSpace(proofType))
+            {
+                AddRow("Proof Type", proofType);
+            }
+            if (!string.IsNullOrWhiteSpace(proofValue))
+            {
+                AddRow("Proof Value", proofValue);
+            }
 
             // Billing details
             AddRow("Total Hours", totalHours.ToString());
@@ -302,7 +314,9 @@ namespace UserModule
                 note: printerDetails.note,
                 hallName: printerDetails.hallName,
                 bookingType: booking.booking_type ?? "",
-                inTime: booking.booking_date
+                inTime: booking.booking_date,
+                proofType: booking.proof_type ?? "",
+                proofValue: booking.proof_id ?? ""
             );
 
             // Optionally save to PNG file for record

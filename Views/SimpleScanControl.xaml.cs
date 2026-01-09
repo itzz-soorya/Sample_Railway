@@ -141,10 +141,8 @@ namespace UserModule
                 bool isSleeper = booking.booking_type?.Equals("Sleeper", StringComparison.OrdinalIgnoreCase) == true || 
                                booking.booking_type?.Equals("Sleeping", StringComparison.OrdinalIgnoreCase) == true;
                 
-                // Calculate base amount based on booking type
-                decimal baseAmount = isSleeper 
-                    ? booking.price_per_person * booking.number_of_persons 
-                    : booking.price_per_person * booking.number_of_persons * bookedHours;
+                // Use the stored total_amount (which includes any discount applied during booking)
+                decimal baseAmount = booking.total_amount;
                 
                 // Calculate extra charges if stayed longer
                 decimal extraCharges = 0;
