@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:UserModule"
         Title="Railax" Height="600" Width="1000"
-        WindowStartupLocation="CenterScreen">    <Grid>
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized">    <Grid>
         <!-- This hosts Login.xaml / Header.xaml -->
         <ContentControl x:Name="MainContent"/>
         

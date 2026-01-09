@@ -203,7 +203,7 @@ namespace UserModule
                 txtPaidAmount.Text = paidAmount.ToString("F2");
                 txtBalanceAmount.Text = balanceAmount.ToString("F2");
 
-                // Set current out time dynamically
+                // Set current out time dynamically (this will update as time passes)
                 txtOutTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
                 // Show payment section
@@ -307,25 +307,12 @@ namespace UserModule
                     return;
                 }
 
-                // Get out time from the read-only textbox (already set to current time)
-                string outTimeStr = txtOutTime.Text.Trim();
-                DateTime outDateTime;
-                if (string.IsNullOrEmpty(outTimeStr))
-                {
-                    outDateTime = DateTime.Now;
-                }
-                else
-                {
-                    if (!DateTime.TryParse(outTimeStr, out outDateTime))
-                    {
-                        // MessageBox.Show("Invalid out time format. Using current time.", "Warning", 
-                        //     MessageBoxButton.OK, MessageBoxImage.Warning);
-                        outDateTime = DateTime.Now;
-                    }
-                }
-                
-                // Convert to TimeSpan (time of day only)
+                // Calculate out time at the exact moment of payment completion
+                DateTime outDateTime = DateTime.Now;
                 TimeSpan outTime = outDateTime.TimeOfDay;
+                
+                // Update the display to show the exact out time being used
+                txtOutTime.Text = outDateTime.ToString("yyyy-MM-dd HH:mm:ss");
 
                 string paymentMethod = ((ComboBoxItem)cmbPaymentMethod.SelectedItem).Content.ToString() ?? "Cash";
 
@@ -367,6 +354,22 @@ namespace UserModule
                     currentBooking.paid_amount = paidAmount;
                     currentBooking.total_amount = totalAmount;
                     currentBooking.balance_amount = 0;
+                    currentBooking.out_time = outTime; // Set the out_time for receipt
+                    currentBooking.payment_method = paymentMethod;
+
+                    // Print the final receipt with out time
+                    try
+                    {
+                        bool printed = ReceiptHelper.GenerateAndPrintReceipt(currentBooking, null, (double)extraCharges);
+                        if (!printed)
+                        {
+                            Logger.Log("Warning: Receipt printing failed after payment completion");
+                        }
+                    }
+                    catch (Exception printEx)
+                    {
+                        Logger.LogError(printEx);
+                    }
 
                     // Close the control
                     CloseRequested?.Invoke(this, EventArgs.Empty);

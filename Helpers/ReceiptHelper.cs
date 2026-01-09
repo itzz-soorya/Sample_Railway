@@ -55,8 +55,14 @@ namespace UserModule
             DateTime? inTime = null,
             string proofType = "",
             string proofValue = "",
-            string outTime = "")
+            TimeSpan? outTime = null,
+            PrinterProfile? printerProfile = null)
         {
+            // Get printer profile if not provided
+            if (printerProfile == null)
+            {
+                printerProfile = PrinterHelper.GetCurrentPrinterProfile();
+            }
             // Calculate base amount (before discount and extra charges)
             bool isSleeper = bookingType.Equals("Sleeper", StringComparison.OrdinalIgnoreCase) || 
                            bookingType.Equals("Sleeping", StringComparison.OrdinalIgnoreCase);
@@ -79,12 +85,12 @@ namespace UserModule
             
             double balance = totalAmount - paidAmount;
 
-            // Root panel optimized for 78mm thermal paper (width ~315px at 96dpi)
+            // Root panel with dynamic width based on printer profile
             var root = new StackPanel
             {
                 Background = Brushes.White,
-                Width = 315,
-                Margin = new Thickness(0, 2, 0, 2),
+                Width = printerProfile.ReceiptWidth,
+                Margin = new Thickness(0, 0, 0, 0),
                 Orientation = Orientation.Vertical,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
@@ -163,16 +169,17 @@ namespace UserModule
             DateTime currentInTime = inTime ?? DateTime.Now;
             var timeDateGrid = new Grid
             {
-                Margin = new Thickness(5, 2, 5, 2),
+                Margin = new Thickness(printerProfile.LeftMargin, 2, printerProfile.RightMargin, 2),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90, GridUnitType.Pixel) });
+            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90, GridUnitType.Pixel) });
             
             var timeBlock = new TextBlock
             {
-                Text = $"Time: {currentInTime.ToString("HH:mm")}",
-                FontSize = 10,
+                Text = $"Time {currentInTime.ToString("HH:mm")}",
+                FontSize = 9,
+                FontWeight = FontWeights.SemiBold,
                 TextAlignment = TextAlignment.Left,
                 Margin = new Thickness(0, 0, 0, 0)
             };
@@ -181,7 +188,8 @@ namespace UserModule
             var dateBlock = new TextBlock
             {
                 Text = currentInTime.ToString("dd/MM/yyyy"),
-                FontSize = 10,
+                FontSize = 9,
+                FontWeight = FontWeights.SemiBold,
                 TextAlignment = TextAlignment.Right,
                 Margin = new Thickness(0, 0, 0, 0)
             };
@@ -200,7 +208,7 @@ namespace UserModule
                     HorizontalAlignment = HorizontalAlignment.Stretch
                 };
                 
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(130, GridUnitType.Pixel) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(125, GridUnitType.Pixel) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 
@@ -209,7 +217,7 @@ namespace UserModule
                     Text = label,
                     FontSize = 13,
                     FontWeight = isBold ? FontWeights.Bold : FontWeights.Normal,
-                    Margin = new Thickness(5, 0, 0, 0),
+                    Margin = new Thickness(printerProfile.LeftMargin, 0, 0, 0),
                     TextAlignment = TextAlignment.Left
                 };
                 Grid.SetColumn(leftBlock, 0);
@@ -253,29 +261,16 @@ namespace UserModule
             AddRow("Total Hours", totalHours.ToString());
             AddRow("Rate / Person", $"₹{ratePerPerson:F0}");
             AddRow("Total Amount", $"₹{totalAmount:F0}", isBold: true);
-
-            // Out time (centered and bold)
-            if (!string.IsNullOrWhiteSpace(outTime))
-            {
-                stack.Children.Add(new TextBlock
-                {
-                    Text = $"Out Time: {outTime}",
-                    FontSize = 11,
-                    FontWeight = FontWeights.Bold,
-                    TextAlignment = TextAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 3, 0, 3)
-                });
-            }
-
-            // Barcode image left-aligned
+            AddRow("Out Time", outTime.HasValue ? outTime.Value.ToString(@"HH\:mm") : "N/A", isBold: true);
+            
+            // Barcode image with dynamic sizing based on printer
             var barcode = new Image
             {
-                Source = GenerateBarcodeImage(billId, width: 600, height: 120),
-                Width = 260,
-                Height = 50,
+                Source = GenerateBarcodeImage(billId, width: (int)(printerProfile.BarcodeWidth * 2.2), height: (int)(printerProfile.BarcodeHeight * 2.2)),
+                Width = printerProfile.BarcodeWidth,
+                Height = printerProfile.BarcodeHeight,
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(5, 3, 0, 2),
+                Margin = new Thickness(printerProfile.LeftMargin, 3, 0, 2),
                 Stretch = Stretch.Uniform
             };
             stack.Children.Add(barcode);
@@ -291,7 +286,7 @@ namespace UserModule
                     TextAlignment = TextAlignment.Left,
                     HorizontalAlignment = HorizontalAlignment.Left,
                     TextWrapping = TextWrapping.Wrap,
-                    Margin = new Thickness(3, 3, 3, 2)
+                    Margin = new Thickness(printerProfile.LeftMargin, 3, printerProfile.RightMargin, 2)
                 });
             }
 
@@ -311,6 +306,9 @@ namespace UserModule
 
             // Get printer details from storage
             var printerDetails = OfflineBookingStorage.GetPrinterDetails();
+
+            // Debug: Log out_time value
+            Logger.Log($"Printing receipt - Booking ID: {booking.booking_id}, Out Time: {(booking.out_time.HasValue ? booking.out_time.Value.ToString(@"HH\:mm") : "null")} (HasValue: {booking.out_time.HasValue})");
 
             var visual = BuildReceiptVisual(
                 billId: booking.booking_id ?? "N/A",
@@ -332,7 +330,7 @@ namespace UserModule
                 inTime: booking.booking_date,
                 proofType: booking.proof_type ?? "",
                 proofValue: booking.proof_id ?? "",
-                outTime: booking.out_time.HasValue ? booking.out_time.Value.ToString(@"hh\:mm") : ""
+                outTime: booking.out_time
             );
 
             // Optionally save to PNG file for record
@@ -363,14 +361,16 @@ namespace UserModule
             if (visual == null) throw new ArgumentNullException(nameof(visual));
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentNullException(nameof(path));
 
-            // measure & arrange at desired size (use 320x... like receipt width)
-            double width = 320;
+            var printerProfile = PrinterHelper.GetCurrentPrinterProfile();
+
+            // measure & arrange at desired size using printer profile width
+            double width = printerProfile.ReceiptWidth;
             double height = 600; // generous; RenderTargetBitmap will crop if smaller needed
             visual.Measure(new Size(width, height));
             visual.Arrange(new Rect(new Size(width, height)));
             visual.UpdateLayout();
 
-            var rtb = new RenderTargetBitmap((int)width, (int)height, 300, 300, PixelFormats.Pbgra32);
+            var rtb = new RenderTargetBitmap((int)width, (int)height, printerProfile.DPI, printerProfile.DPI, PixelFormats.Pbgra32);
             rtb.Render(visual);
 
             // Trim transparent bottom if you want (left as-is for simplicity)

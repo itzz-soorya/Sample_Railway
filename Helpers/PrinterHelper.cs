@@ -13,8 +13,107 @@ using ZXing.Common;
 
 namespace UserModule
 {
+    // Printer configuration profile for different thermal printer models
+    public class PrinterProfile
+    {
+        public string PrinterType { get; set; } = "Generic";
+        public double ReceiptWidth { get; set; } = 304; // pixels at 96 DPI
+        public double PageWidth { get; set; } = 304;
+        public double PageHeight { get; set; } = 842;
+        public int DPI { get; set; } = 203;
+        public double BarcodeWidth { get; set; } = 250;
+        public double BarcodeHeight { get; set; } = 45;
+        public double LeftMargin { get; set; } = 5;
+        public double RightMargin { get; set; } = 5;
+    }
+
     public static class PrinterHelper
     {
+        // Detect printer type and return appropriate profile
+        private static PrinterProfile GetPrinterProfile(string printerName)
+        {
+            string printerLower = printerName.ToLower();
+
+            // Epson TM-T82 / TM-T88 series (80mm paper)
+            if (printerLower.Contains("epson") && (printerLower.Contains("tm-t82") || printerLower.Contains("tm-t88")))
+            {
+                return new PrinterProfile
+                {
+                    PrinterType = "Epson TM-T82/T88",
+                    ReceiptWidth = 304,
+                    PageWidth = 304,
+                    PageHeight = 842,
+                    DPI = 203,
+                    BarcodeWidth = 250,
+                    BarcodeHeight = 45,
+                    LeftMargin = 14,
+                    RightMargin = 8
+                };
+            }
+            // TVS Printer series (80mm paper)
+            else if (printerLower.Contains("tvs"))
+            {
+                return new PrinterProfile
+                {
+                    PrinterType = "TVS",
+                    ReceiptWidth = 304,
+                    PageWidth = 304,
+                    PageHeight = 842,
+                    DPI = 203,
+                    BarcodeWidth = 250,
+                    BarcodeHeight = 45,
+                    LeftMargin = 5,
+                    RightMargin = 5
+                };
+            }
+            // Star Micronics (80mm paper)
+            else if (printerLower.Contains("star"))
+            {
+                return new PrinterProfile
+                {
+                    PrinterType = "Star Micronics",
+                    ReceiptWidth = 304,
+                    PageWidth = 304,
+                    PageHeight = 842,
+                    DPI = 203,
+                    BarcodeWidth = 250,
+                    BarcodeHeight = 45,
+                    LeftMargin = 6,
+                    RightMargin = 6
+                };
+            }
+            // Generic 80mm thermal printer (default)
+            else
+            {
+                return new PrinterProfile
+                {
+                    PrinterType = "Generic 80mm",
+                    ReceiptWidth = 304,
+                    PageWidth = 304,
+                    PageHeight = 842,
+                    DPI = 203,
+                    BarcodeWidth = 250,
+                    BarcodeHeight = 45,
+                    LeftMargin = 5,
+                    RightMargin = 5
+                };
+            }
+        }
+
+        // Get current printer profile
+        public static PrinterProfile GetCurrentPrinterProfile()
+        {
+            try
+            {
+                var settings = new PrinterSettings();
+                string printerName = settings.PrinterName;
+                return GetPrinterProfile(printerName ?? "Generic");
+            }
+            catch
+            {
+                return new PrinterProfile(); // Return default
+            }
+        }
         public static bool TryPrint(UIElement visualToPrint)
         {
             try
@@ -83,12 +182,20 @@ namespace UserModule
 
         private static void PrintVisualToPrinter(UIElement visual, string printerName)
         {
+            // Get printer-specific profile
+            var printerProfile = GetPrinterProfile(printerName);
+
             PrintDialog printDialog = new PrintDialog
             {
                 PrintQueue = new PrintQueue(new PrintServer(), printerName)
             };
 
-            printDialog.PrintTicket.PageMediaSize = new PageMediaSize(PageMediaSizeName.Unknown);
+            // Set page size dynamically based on printer profile
+            printDialog.PrintTicket.PageMediaSize = new PageMediaSize(
+                PageMediaSizeName.ISOA8, 
+                printerProfile.PageWidth, 
+                printerProfile.PageHeight
+            );
             printDialog.PrintTicket.PageOrientation = PageOrientation.Portrait;
 
             var areaWidth = printDialog.PrintableAreaWidth;
