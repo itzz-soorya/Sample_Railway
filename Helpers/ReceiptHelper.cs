@@ -43,6 +43,7 @@ namespace UserModule
             int persons,
             double ratePerPerson,
             double paidAmount,
+            double totalAmount = 0,
             double extraCharges = 0,
             string heading1 = "Railway Booking",
             string heading2 = "",
@@ -53,8 +54,7 @@ namespace UserModule
             string bookingType = "",
             DateTime? inTime = null)
         {
-            // For Sleeper with pricing tiers, ratePerPerson already includes the hour range cost
-            // For Sitting, it's an hourly rate that needs to be multiplied by hours
+            // Calculate base amount (before discount and extra charges)
             bool isSleeper = bookingType.Equals("Sleeper", StringComparison.OrdinalIgnoreCase) || 
                            bookingType.Equals("Sleeping", StringComparison.OrdinalIgnoreCase);
             
@@ -62,7 +62,18 @@ namespace UserModule
                 ? ratePerPerson * persons 
                 : ratePerPerson * persons * Math.Max(1, totalHours);
             
-            double totalAmount = baseAmount + extraCharges;
+            // If totalAmount is provided (from booking with discount applied), use it
+            // Otherwise calculate from baseAmount (for backwards compatibility)
+            if (totalAmount <= 0)
+            {
+                totalAmount = baseAmount + extraCharges;
+            }
+            else
+            {
+                // Total amount already includes discount, just add extra charges if any
+                totalAmount += extraCharges;
+            }
+            
             double balance = totalAmount - paidAmount;
 
             // Root panel optimized for 78mm thermal paper (width ~295px at 96dpi)
@@ -269,6 +280,7 @@ namespace UserModule
             int persons = booking.number_of_persons;
             double rate = Convert.ToDouble(booking.price_per_person);
             double paid = Convert.ToDouble(booking.paid_amount);
+            double total = Convert.ToDouble(booking.total_amount); // Use the actual total (includes discount)
 
             // Get printer details from storage
             var printerDetails = OfflineBookingStorage.GetPrinterDetails();
@@ -281,6 +293,7 @@ namespace UserModule
                 persons: persons,
                 ratePerPerson: rate,
                 paidAmount: paid,
+                totalAmount: total,
                 extraCharges: extraCharges,
                 heading1: printerDetails.heading1,
                 heading2: printerDetails.heading2,

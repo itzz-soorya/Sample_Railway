@@ -1412,16 +1412,23 @@ namespace UserModule
                 isValid = false;
             }
 
-            // Validate Discount (must not exceed total)
+            // Validate Discount (must not exceed base total)
             if (!string.IsNullOrWhiteSpace(txtDiscount.Text))
             {
-                if (decimal.TryParse(txtDiscount.Text, out decimal discount) && decimal.TryParse(txtTotalAmount.Text, out decimal total))
+                if (decimal.TryParse(txtDiscount.Text, out decimal discount) && discount > 0)
                 {
-                    if (discount > total + discount) // Check against base total before discount
+                    // Get base total (price per person * number of persons)
+                    if (decimal.TryParse(txtRate.Text, out decimal pricePerPerson) && 
+                        int.TryParse(txtPersons.Text, out int personCount))
                     {
-                        MessageBox.Show("Discount cannot exceed the total amount.", 
-                            "Invalid Discount", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        isValid = false;
+                        decimal baseTotal = pricePerPerson * personCount;
+                        
+                        if (discount > baseTotal)
+                        {
+                            MessageBox.Show($"Discount (₹{discount:0.00}) cannot exceed the base total amount (₹{baseTotal:0.00}).", 
+                                "Invalid Discount", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            isValid = false;
+                        }
                     }
                 }
             }
@@ -1973,51 +1980,76 @@ namespace UserModule
         {
             try
             {
-                // Get price per person
+                // Get price per person (total price per person including hours)
                 if (!decimal.TryParse(txtRate.Text, out decimal pricePerPerson) || pricePerPerson <= 0)
                 {
-                    return; // No valid price yet
+                    // If no valid price, clear total and return
+                    if (string.IsNullOrWhiteSpace(txtRate.Text))
+                    {
+                        txtTotalAmount.Text = "0";
+                    }
+                    return;
                 }
 
                 // Get number of persons
                 if (!int.TryParse(txtPersons.Text, out int persons) || persons <= 0)
                 {
-                    return; // No valid persons count yet
+                    // If no valid persons, clear total and return
+                    if (string.IsNullOrWhiteSpace(txtPersons.Text))
+                    {
+                        txtTotalAmount.Text = "0";
+                    }
+                    return;
                 }
 
-                // Calculate base total
+                // Calculate base total (before discount)
                 decimal baseTotal = pricePerPerson * persons;
 
                 // Apply discount with validation
                 decimal discount = 0;
-                if (decimal.TryParse(txtDiscount.Text, out decimal discountAmount) && discountAmount > 0)
+                if (!string.IsNullOrWhiteSpace(txtDiscount.Text))
                 {
-                    // Discount cannot exceed base total
-                    if (discountAmount > baseTotal)
+                    if (decimal.TryParse(txtDiscount.Text, out decimal discountAmount))
                     {
-                        discount = baseTotal;
-                        txtDiscount.Text = baseTotal.ToString("0.00");
-                        
-                        MessageBox.Show($"Discount cannot exceed the total amount of ₹{baseTotal:0.00}.\n\nDiscount has been adjusted to ₹{baseTotal:0.00}.",
-                            "Discount Limited", MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
-                    else
-                    {
-                        discount = discountAmount;
+                        // Only apply positive discount values
+                        if (discountAmount > 0)
+                        {
+                            // Discount cannot exceed base total
+                            if (discountAmount > baseTotal)
+                            {
+                                // Cap discount at base total
+                                discount = baseTotal;
+                                
+                                // Temporarily remove event handler to prevent recursion
+                                txtDiscount.TextChanged -= txtDiscount_TextChanged;
+                                txtDiscount.Text = baseTotal.ToString("0.00");
+                                txtDiscount.TextChanged += txtDiscount_TextChanged;
+                                
+                                MessageBox.Show($"Discount cannot exceed the total amount of ₹{baseTotal:0.00}.\n\nDiscount has been adjusted to ₹{baseTotal:0.00}.",
+                                    "Discount Limited", MessageBoxButton.OK, MessageBoxImage.Information);
+                            }
+                            else
+                            {
+                                discount = discountAmount;
+                            }
+                        }
                     }
                 }
 
-                // Calculate final total after discount
+                // Calculate final total after applying discount
                 decimal finalTotal = baseTotal - discount;
+                
+                // Update total amount display
                 txtTotalAmount.Text = finalTotal.ToString("0.00");
 
-                // ADVANCE AMOUNT ALWAYS SET TO 0 (calculation disabled)
-                // Users can manually enter advance amount if needed
+                // Clear advance amount (users can manually enter if needed)
                 txtPaid.Text = "";
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex);
+                MessageBox.Show($"Error calculating discount: {ex.Message}", "Calculation Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
