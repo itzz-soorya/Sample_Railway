@@ -15,6 +15,9 @@
         <local:BookingTypeConverter x:Key="BookingTypeConverter"/>
         <!-- Booking ID Converter -->
         <local:BookingIdConverter x:Key="BookingIdConverter"/>
+        <!-- Critical Row Converters -->
+        <local:CriticalRowBackgroundConverter x:Key="CriticalRowBackgroundConverter"/>
+        <local:CriticalRowForegroundConverter x:Key="CriticalRowForegroundConverter"/>
         <!-- Header Button Style -->
         <Style TargetType="Button" x:Key="HeaderButtonStyle">
             <Setter Property="Foreground" Value="White"/>
@@ -440,6 +443,7 @@
                                     <Setter Property="Background" Value="Transparent"/>
                                     <Setter Property="HorizontalAlignment" Value="Stretch"/>
                                     <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridRow}}"/>
                                     <Style.Triggers>
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter Property="Background" Value="Transparent"/>
@@ -455,14 +459,30 @@
                                     <Setter Property="BorderThickness" Value="0,0,0,1"/>
                                     <Setter Property="BorderBrush" Value="#F0F0F0"/>
                                     <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                    <Setter Property="Foreground" Value="Black"/>
                                     <Style.Triggers>
+                                        <DataTrigger>
+                                            <DataTrigger.Binding>
+                                                <MultiBinding Converter="{StaticResource CriticalRowBackgroundConverter}">
+                                                    <Binding Path="out_time"/>
+                                                    <Binding Path="status"/>
+                                                </MultiBinding>
+                                            </DataTrigger.Binding>
+                                            <DataTrigger.Value>True</DataTrigger.Value>
+                                            <Setter Property="Background" Value="#e82305"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter Property="Background" Value="#E6F3FF"/>
                                             <Setter Property="Foreground" Value="Black"/>
                                         </Trigger>
-                                        <Trigger Property="IsMouseOver" Value="True">
+                                        <MultiTrigger>
+                                            <MultiTrigger.Conditions>
+                                                <Condition Property="IsMouseOver" Value="True"/>
+                                                <Condition Property="Foreground" Value="Black"/>
+                                            </MultiTrigger.Conditions>
                                             <Setter Property="Background" Value="#F5F5F5"/>
-                                        </Trigger>
+                                        </MultiTrigger>
                                     </Style.Triggers>
                                 </Style>
 

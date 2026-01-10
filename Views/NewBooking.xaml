@@ -643,7 +643,7 @@
             </StackPanel>
         </Grid>
 
-        <!-- Pricing Summary Overlay Card -->
+        <!-- Pricing Summary Overlay Card - SITTING LAYOUT (5 rows) -->
         <Grid x:Name="PricingSummaryOverlay"
               Grid.RowSpan="2"
               Background="#80000000"
@@ -653,7 +653,7 @@
               Panel.ZIndex="998">
             <Border Background="White" 
                     CornerRadius="8" 
-                    Width="500" 
+                    Width="520" 
                     VerticalAlignment="Center" 
                     HorizontalAlignment="Center"
                     Padding="30"
@@ -667,145 +667,194 @@
                                    Foreground="#333" 
                                    Margin="0,0,0,20"/>
 
-                    <!-- Row 1: Number of Persons -->
-                    <Grid Margin="0,0,0,15">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Number of Persons" FontSize="14" Foreground="#666" Grid.Column="0"/>
-                        <TextBlock x:Name="summaryPersons" Text="0" FontSize="14" FontWeight="SemiBold" Foreground="#333" Grid.Column="1"/>
-                    </Grid>
+                        <!-- Row 1: Number of Persons -->
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Number of Persons" FontSize="14" Foreground="#666" Grid.Column="0"/>
+                            <TextBlock x:Name="summaryPersons" Text="0" FontSize="14" FontWeight="SemiBold" Foreground="#333" Grid.Column="1"/>
+                        </Grid>
 
-                    <!-- Row 2: Per Person Price -->
-                    <Grid Margin="0,0,0,15">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Per Person Price (₹)" FontSize="14" Foreground="#666" Grid.Column="0"/>
-                        <TextBlock x:Name="summaryPrice" Text="0" FontSize="14" FontWeight="SemiBold" Foreground="#333" Grid.Column="1"/>
-                    </Grid>
+                        <!-- Row 2: Seat Type -->
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Seat Type" FontSize="14" Foreground="#666" Grid.Column="0"/>
+                            <TextBlock x:Name="summarySeatType" Text="-" FontSize="14" FontWeight="SemiBold" Foreground="#333" Grid.Column="1"/>
+                        </Grid>
 
-                    <!-- Row 3: Total Hours -->
-                    <Grid Margin="0,0,0,15">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                            <ComboBox x:Name="summarytxtHours"
-                                        Height="30"
-                                        Width="140"
-                                        Padding="8,0"
-                                        FontSize="12"
-                                        PreviewKeyDown="Control_PreviewKeyDown"
-                                        Foreground="Black"
-                                        FontWeight="DemiBold"
-                                        Background="White"
-                                        HorizontalContentAlignment="Left"
-                                        VerticalContentAlignment="Center"
-                                        MaxDropDownHeight="250"
-                                        Style="{StaticResource WhiteComboBoxStyle}"
-                                        SelectionChanged="SummaryHours_SelectionChanged"
-                                        KeyDown="SummaryCard_KeyDown">
-                                        <ComboBoxItem x:Name="summaryHoursPlaceholder" Content="Select hours" IsEnabled="False" Style="{StaticResource WhiteComboBoxItemStyle}" IsSelected="True"/>
-                                        <ComboBoxItem Content="1 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="2 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="3 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="4 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="5 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="6 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="7 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="8 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="9 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="10 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="11 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
-                                        <ComboBoxItem Content="12 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                        <!-- Row 3: Per Person Price -->
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Per Person Price (₹)" FontSize="14" Foreground="#666" Grid.Column="0"/>
+                            <TextBlock x:Name="summaryPrice" Text="0" FontSize="14" FontWeight="SemiBold" Foreground="#333" Grid.Column="1"/>
+                        </Grid>
+
+                        <!-- Row 4: Start Time and End Time -->
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1*"/>
+                                <ColumnDefinition Width="1*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- Start Time -->
+                            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                <TextBlock Text="Start Time" FontSize="12" Foreground="#666" Margin="0,0,0,4"/>
+                                <TextBox x:Name="summaryStartTime"
+                                         Text="00:00"
+                                         FontSize="13"
+                                         FontWeight="SemiBold"
+                                         Foreground="Black"
+                                         Padding="8,6"
+                                         Background="White"
+                                         BorderBrush="#CCCCCC"
+                                         BorderThickness="1"
+                                         IsReadOnly="True"
+                                         Style="{StaticResource RoundedWatermarkTextBoxStyle}"
+                                         TextAlignment="Center"/>
+                            </StackPanel>
+
+                            <!-- End Time -->
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock Text="End Time" FontSize="12" Foreground="#666" Margin="0,0,0,4"/>
+                                <TextBox x:Name="summaryEndTime"
+                                         Text="00:00"
+                                         FontSize="13"
+                                         FontWeight="SemiBold"
+                                         Foreground="Black"
+                                         Padding="8,6"
+                                         Background="White"
+                                         BorderBrush="#CCCCCC"
+                                         BorderThickness="1"
+                                         IsReadOnly="True"
+                                         Style="{StaticResource RoundedWatermarkTextBoxStyle}"
+                                         TextAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Row 5: Total Hours (ComboBox Style) -->
+                        <StackPanel Margin="0,0,0,15">
+                            <TextBlock Text="Total Hours" FontWeight="SemiBold" FontSize="14" Foreground="#333" Margin="0,0,0,8"/>
+                            <ComboBox x:Name="summaryHoursCombo"
+                                    Height="40"
+                                    Padding="10,0"
+                                    FontSize="14"
+                                    PreviewKeyDown="Control_PreviewKeyDown"
+                                    Foreground="Black" FontWeight="DemiBold"
+                                    Background="White"
+                                    HorizontalContentAlignment="Left"
+                                    VerticalContentAlignment="Center"
+                                    MaxDropDownHeight="250"
+                                    Style="{StaticResource WhiteComboBoxStyle}"
+                                    SelectionChanged="SummaryHours_SelectionChanged"
+                                    DropDownOpened="SummaryHours_DropDownOpened"
+                                    IsTabStop="True">
+                                <ComboBoxItem x:Name="summaryHoursPlaceholder" Content="Select hours" IsEnabled="False" Style="{StaticResource WhiteComboBoxItemStyle}" IsSelected="True"/>
+                                <ComboBoxItem Content="1 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="2 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="3 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="4 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="5 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="6 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="7 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="8 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="9 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="10 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="11 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="12 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
                             </ComboBox>
                         </StackPanel>
-                        <TextBlock Text="Total Hours" FontSize="14" Foreground="#666" Grid.Column="0"/>
-                    </Grid>
 
-                    <!-- Row 3.5: Room Number (Only for Sleeper) -->
-                    <Grid x:Name="roomNumberGrid" Margin="0,0,0,15" Visibility="Collapsed">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Room Number" FontSize="14" Foreground="#666" Grid.Column="0"/>
-                        <TextBox x:Name="summaryRoomNumber"
-                                 Text=""
-                                 FontSize="12"
-                                 FontWeight="DemiBold"
-                                 Foreground="Black"
-                                 Grid.Column="1"
-                                 Width="140"
-                                 Padding="8,5"
-                                 Style="{StaticResource RoundedWatermarkTextBoxStyle}"
-                                 Tag="Room #"
-                                 PreviewTextInput="NumbersOnly_PreviewTextInput"
-                                 DataObject.Pasting="NumbersOnly_Pasting"
-                                 KeyDown="SummaryCard_KeyDown"/>
-                    </Grid>
+                        <!-- Row 6: Room Number (Sleeper Only) -->
+                        <Grid x:Name="roomNumberGrid" Margin="0,0,0,15" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Room Number" FontSize="14" Foreground="#666" Grid.Column="0"/>
+                            <TextBox x:Name="summaryRoomNumber"
+                                     Text=""
+                                     FontSize="12"
+                                     FontWeight="DemiBold"
+                                     Foreground="Black"
+                                     Grid.Column="1"
+                                     Width="140"
+                                     Padding="8,5"
+                                     Style="{StaticResource RoundedWatermarkTextBoxStyle}"
+                                     Tag="Room #"
+                                     PreviewTextInput="NumbersOnly_PreviewTextInput"
+                                     DataObject.Pasting="NumbersOnly_Pasting"
+                                     KeyDown="SummaryCard_KeyDown"
+                                     TextChanged="SummaryRoomNumber_TextChanged"
+                                     IsTabStop="True"/>
+                        </Grid>
 
-                    <!-- Row 4: Discount -->
-                    <Grid Margin="0,0,0,15">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="150"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Discount (₹)" FontSize="14" Foreground="#666" Grid.Column="0"/>
-                        <TextBox x:Name="summaryDiscount" 
-                                 Text="0" 
-                                 FontSize="14" 
-                                 FontWeight="SemiBold" 
-                                 Foreground="Black"
-                                 Grid.Column="1"
-                                 Padding="10,5"
-                                 TextChanged="SummaryDiscount_TextChanged"
-                                 PreviewTextInput="NumbersOnly_PreviewTextInput"
-                                 DataObject.Pasting="NumbersOnly_Pasting"
-                                 KeyDown="SummaryCard_KeyDown"/>
-                    </Grid>
+                        <!-- Row 7: Discount -->
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="150"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Discount (₹)" FontSize="14" Foreground="#666" Grid.Column="0"/>
+                            <TextBox x:Name="summaryDiscount" 
+                                     Text="0" 
+                                     FontSize="14" 
+                                     FontWeight="SemiBold" 
+                                     Foreground="Black"
+                                     Grid.Column="1"
+                                     Padding="10,5"
+                                     TextChanged="SummaryDiscount_TextChanged"
+                                     PreviewTextInput="NumbersOnly_PreviewTextInput"
+                                     DataObject.Pasting="NumbersOnly_Pasting"
+                                     KeyDown="SummaryCard_KeyDown"
+                                     IsTabStop="True"/>
+                        </Grid>
 
-                    <!-- Separator Line -->
-                    <Border Height="1" Background="#CCCCCC" Margin="0,10,0,15"/>
+                        <!-- Separator Line -->
+                        <Border Height="1" Background="#CCCCCC" Margin="0,10,0,15"/>
 
-                    <!-- Row 5: Total Amount -->
-                    <Grid Margin="0,0,0,25">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Total Amount (₹)" FontSize="15" FontWeight="Bold" Foreground="#333" Grid.Column="0"/>
-                        <TextBlock x:Name="summaryTotalAmount" Text="0" FontSize="16" FontWeight="Bold" Foreground="#2E7D32" Grid.Column="1"/>
-                    </Grid>
+                        <!-- Row 8: Total Amount -->
+                        <Grid Margin="0,0,0,25">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Total Amount (₹)" FontSize="15" FontWeight="Bold" Foreground="#333" Grid.Column="0"/>
+                            <TextBlock x:Name="summaryTotalAmount" Text="0" FontSize="16" FontWeight="Bold" Foreground="#2E7D32" Grid.Column="1"/>
+                        </Grid>
 
-                    <!-- Buttons: Print and Cancel -->
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Button x:Name="PrintButton" 
-                                Content="Print" 
-                                Height="40" 
-                                Style="{StaticResource PrimaryButtonStyle}"
-                                Grid.Column="0"
-                                Margin="0,0,10,0"
-                                Click="PrintButton_Click"
-                                PreviewKeyDown="PrintButton_PreviewKeyDown"
-                                PreviewMouseLeftButtonDown="PrintButton_PreviewMouseDown"/>
-                        <Button x:Name="CancelOverlayButton" 
-                                Content="Cancel" 
-                                Height="40" 
-                                Style="{StaticResource CancelButtonStyle}"
-                                Grid.Column="1"
-                                Margin="10,0,0,0"
-                                Click="CancelOverlay_Click"/>
-                    </Grid>
-                </StackPanel>
+                        <!-- Buttons: Print and Cancel -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="PrintButton" 
+                                    Content="Print" 
+                                    Height="40" 
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Grid.Column="0"
+                                    Margin="0,0,10,0"
+                                    PreviewKeyDown="PrintButton_PreviewKeyDown"
+                                    PreviewMouseDown="PrintButton_PreviewMouseDown"
+                                    IsTabStop="True"/>
+                            <Button x:Name="CancelOverlayButton" 
+                                    Content="Cancel" 
+                                    Height="40" 
+                                    Style="{StaticResource CancelButtonStyle}"
+                                    Grid.Column="1"
+                                    Margin="10,0,0,0"
+                                    Click="CancelOverlay_Click"
+                                    IsTabStop="True"/>
+                        </Grid>
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>

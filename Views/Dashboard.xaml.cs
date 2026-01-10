@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.Linq;
 using System.Net.NetworkInformation;
@@ -22,12 +23,19 @@ namespace UserModule
         private Dictionary<string, int> bookingTypeCounts = new Dictionary<string, int>();
         private Dictionary<string, TextBlock> typeTextBlocks = new Dictionary<string, TextBlock>();
         private string currentFilter = "All"; // Track current filter state
+        private DispatcherTimer? refreshTimer;
 
         public Dashboard()
         {
             InitializeComponent();
             DataContext = this;
             BookingDataGrid.ItemsSource = Bookings;
+
+            // Start timer to refresh converters every second
+            refreshTimer = new DispatcherTimer();
+            refreshTimer.Interval = TimeSpan.FromSeconds(1);
+            refreshTimer.Tick += (s, e) => RefreshDataGridView();
+            refreshTimer.Start();
 
             try
             {
@@ -51,6 +59,15 @@ namespace UserModule
             {
                 Logger.LogError(ex);
                 MessageBox.Show("An error occurred while loading the dashboard.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RefreshDataGridView()
+        {
+            // Force DataGrid to refresh bindings/triggers
+            if (BookingDataGrid != null && BookingDataGrid.ItemsSource is INotifyCollectionChanged)
+            {
+                BookingDataGrid.InvalidateVisual();
             }
         }
 
@@ -745,6 +762,132 @@ namespace UserModule
             }
 
             return bookingType;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converter to check if booking has 5 minutes or less remaining
+    /// </summary>
+    public class RemainingTimeChecker : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is TimeSpan outTime)
+            {
+                // Get current time
+                TimeSpan now = DateTime.Now.TimeOfDay;
+                
+                // Calculate remaining time
+                TimeSpan remaining = outTime - now;
+                
+                // If remaining time is 5 minutes or less (and positive), return true
+                if (remaining.TotalSeconds > 0 && remaining.TotalMinutes <= 5)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converter to check if row should be highlighted (critical time and active status)
+    /// </summary>
+    public class CriticalRowBackgroundConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            try
+            {
+                if (values == null || values.Length < 2) 
+                    return false;
+
+                // If status is not "Active", don't highlight
+                if (values[1] is string status)
+                {
+                    if (status.Equals("Completed", StringComparison.OrdinalIgnoreCase) || 
+                        !status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+
+                if (values[0] is TimeSpan outTime)
+                {
+                    TimeSpan now = DateTime.Now.TimeOfDay;
+                    TimeSpan remaining = outTime - now;
+                    
+                    // Show red if: remaining time is <= 5 minutes OR time has already passed
+                    if (remaining.TotalMinutes <= 5)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                return false;
+            }
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converter to check if text should be white (critical time and active status)
+    /// </summary>
+    public class CriticalRowForegroundConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            try
+            {
+                if (values == null || values.Length < 2)
+                    return false;
+
+                // If status is not "Active", don't apply white text
+                if (values[1] is string status)
+                {
+                    if (status.Equals("Completed", StringComparison.OrdinalIgnoreCase) || 
+                        !status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+
+                if (values[0] is TimeSpan outTime)
+                {
+                    TimeSpan now = DateTime.Now.TimeOfDay;
+                    TimeSpan remaining = outTime - now;
+                    
+                    // Show white text if: remaining time is <= 5 minutes OR time has already passed
+                    if (remaining.TotalMinutes <= 5)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                return false;
+            }
         }
 
         public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
