@@ -1794,11 +1794,16 @@ public static class OfflineBookingStorage
 
         try
         {
+            // Get current admin_id from LocalStorage
+            string currentAdminId = LocalStorage.GetItem("adminId") ?? "";
+            
             using var connection = new SqliteConnection($"Data Source={DbPath}");
             connection.Open();
 
-            string query = "SELECT * FROM HourlyPricing ORDER BY min_hours";
+            // Only get tiers for the current admin_id
+            string query = "SELECT * FROM HourlyPricing WHERE admin_id = @admin_id ORDER BY min_hours";
             using var cmd = new SqliteCommand(query, connection);
+            cmd.Parameters.AddWithValue("@admin_id", currentAdminId);
             using var reader = cmd.ExecuteReader();
 
             while (reader.Read())

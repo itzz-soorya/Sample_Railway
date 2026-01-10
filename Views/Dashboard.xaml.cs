@@ -825,12 +825,23 @@ namespace UserModule
                 if (values[0] is TimeSpan outTime)
                 {
                     TimeSpan now = DateTime.Now.TimeOfDay;
-                    TimeSpan remaining = outTime - now;
                     
-                    // Show red if: remaining time is <= 5 minutes OR time has already passed
-                    if (remaining.TotalMinutes <= 5)
+                    // Show red if current time has crossed the out_time (booking is overdue)
+                    // Handle midnight crossing: if outTime is earlier in the day than now, 
+                    // check if it's actually tomorrow's time or already passed today
+                    if (now > outTime)
                     {
+                        // Current time has passed the out_time - booking is overdue
                         return true;
+                    }
+                    else
+                    {
+                        // Check if within 5 minutes of out_time
+                        TimeSpan remaining = outTime - now;
+                        if (remaining.TotalMinutes <= 5)
+                        {
+                            return true;
+                        }
                     }
                 }
                 return false;

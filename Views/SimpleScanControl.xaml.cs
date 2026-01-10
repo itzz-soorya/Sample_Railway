@@ -357,19 +357,8 @@ namespace UserModule
                     currentBooking.out_time = outTime; // Set the out_time for receipt
                     currentBooking.payment_method = paymentMethod;
 
-                    // Print the final receipt with out time
-                    try
-                    {
-                        bool printed = ReceiptHelper.GenerateAndPrintReceipt(currentBooking, null, (double)extraCharges);
-                        if (!printed)
-                        {
-                            Logger.Log("Warning: Receipt printing failed after payment completion");
-                        }
-                    }
-                    catch (Exception printEx)
-                    {
-                        Logger.LogError(printEx);
-                    }
+                    // No automatic printing after closing - user can manually print if needed
+                    // Printing was removed to avoid duplicate receipts
 
                     // Close the control
                     CloseRequested?.Invoke(this, EventArgs.Empty);

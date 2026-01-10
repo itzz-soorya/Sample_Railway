@@ -1257,12 +1257,18 @@ namespace UserModule
                 if (summaryHoursCombo != null && txtHours.SelectedIndex > 0)
                 {
                     summaryHoursCombo.SelectedIndex = txtHours.SelectedIndex;
-                    summaryHoursPlaceholder.Visibility = Visibility.Collapsed;
+                    if (summaryHoursPlaceholder != null)
+                    {
+                        summaryHoursPlaceholder.Visibility = Visibility.Collapsed;
+                    }
                 }
-                else
+                else if (summaryHoursCombo != null)
                 {
                     summaryHoursCombo.SelectedIndex = 0;
-                    summaryHoursPlaceholder.Visibility = Visibility.Visible;
+                    if (summaryHoursPlaceholder != null)
+                    {
+                        summaryHoursPlaceholder.Visibility = Visibility.Visible;
+                    }
                 }
 
                 // Discount (start fresh)
@@ -1434,12 +1440,13 @@ namespace UserModule
         /// Handle Enter key press on Print button
         /// </summary>
         /// <summary>
-        /// Prevent double-click on Print button
+        /// Handle mouse clicks on Print button - allow single click
         /// </summary>
         private void PrintButton_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            // Prevent any mouse clicks on print button - only double-Enter is allowed
-            e.Handled = true;
+            // Allow mouse clicks to work normally
+            // The double-Enter requirement only applies to keyboard navigation
+            e.Handled = false;
         }
 
         /// <summary>
@@ -1608,6 +1615,16 @@ namespace UserModule
 
                 string? workerId = LocalStorage.GetItem("workerId");
 
+                // Calculate expected end time (out_time) based on start time + total hours
+                TimeSpan currentInTime = DateTime.Now.TimeOfDay;
+                TimeSpan calculatedOutTime = currentInTime.Add(TimeSpan.FromHours(totalHours));
+                
+                // Handle if out_time goes beyond midnight (next day)
+                if (calculatedOutTime.TotalHours >= 24)
+                {
+                    calculatedOutTime = calculatedOutTime.Subtract(TimeSpan.FromHours(24));
+                }
+
                 var booking = new Booking1
                 {
                     booking_id = billId,
@@ -1619,7 +1636,8 @@ namespace UserModule
                     room_number = summaryRoomNumber?.Text,
                     total_hours = totalHours,
                     booking_date = DateTime.Now,
-                    in_time = DateTime.Now.TimeOfDay,
+                    in_time = currentInTime,
+                    out_time = calculatedOutTime,  // Set expected end time
                     proof_type = proofType,
                     proof_id = proofId,
                     price_per_person = rate,
@@ -1631,7 +1649,7 @@ namespace UserModule
                 };
 
                 // Use the new online-first save method
-                await OfflineBookingStorage.SaveBookingAsync(booking, showMessages: true);
+                await OfflineBookingStorage.SaveBookingAsync(booking, showMessages: false);
 
                 // Refresh Dashboard to update counts and show new booking
                 if (_dashboardInstance != null)
@@ -1712,13 +1730,15 @@ namespace UserModule
                 
                 if (!printed)
                 {
-                    ShowAlert("warning", "Failed to print receipt. Please check printer connection.");
+                    MessageBox.Show("Failed to print receipt. Please check printer connection.", 
+                        "Printer Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex);
-                ShowAlert("error", $"Print error: {ex.Message}");
+                MessageBox.Show($"Print error: {ex.Message}\n\nStack trace:\n{ex.StackTrace}", 
+                    "Print Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -2550,7 +2570,24 @@ namespace UserModule
                     hoursText = (txtHours.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
                 }
 
-                if (int.TryParse(hoursText.Split(' ')[0], out int hours))
+                // Parse hours - handle both "1-3 hrs" and "1 hr" formats
+                int hours = 0;
+                if (hoursText.Contains("-"))
+                {
+                    // For range like "1-3 hrs", use the max value (3)
+                    string[] parts = hoursText.Split('-');
+                    if (parts.Length > 1 && int.TryParse(parts[1].Split(' ')[0], out int maxHours))
+                    {
+                        hours = maxHours;
+                    }
+                }
+                else
+                {
+                    // For single value like "1 hr"
+                    int.TryParse(hoursText.Split(' ')[0], out hours);
+                }
+
+                if (hours > 0)
                 {
                     DateTime endTime = now.AddHours(hours);
                     summaryEndTime.Text = endTime.ToString("HH:mm");

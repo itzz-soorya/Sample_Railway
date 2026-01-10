@@ -1,4 +1,6 @@
-﻿using System;
+﻿//ReceiptHelper
+
+using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -260,8 +262,21 @@ namespace UserModule
             AddRow("Persons", persons.ToString());
             AddRow("Total Hours", totalHours.ToString());
             AddRow("Rate / Person", $"₹{ratePerPerson:F0}");
+            
+            // Calculate Out Time: if outTime is provided use it, otherwise calculate from inTime + totalHours
+            string displayOutTime = "Pending";
+            if (outTime.HasValue)
+            {
+                displayOutTime = outTime.Value.ToString(@"hh\:mm");
+            }
+            else if (inTime.HasValue)
+            {
+                var calculatedOutTime = currentInTime.Add(TimeSpan.FromHours(totalHours));
+                displayOutTime = calculatedOutTime.ToString("HH:mm");
+            }
+            AddRow("Out Time", displayOutTime);
+            
             AddRow("Total Amount", $"₹{totalAmount:F0}", isBold: true);
-            AddRow("Out Time", outTime.HasValue ? outTime.Value.ToString(@"HH\:mm") : "N/A", isBold: true);
             
             // Barcode image with dynamic sizing based on printer
             var barcode = new Image
@@ -308,7 +323,7 @@ namespace UserModule
             var printerDetails = OfflineBookingStorage.GetPrinterDetails();
 
             // Debug: Log out_time value
-            Logger.Log($"Printing receipt - Booking ID: {booking.booking_id}, Out Time: {(booking.out_time.HasValue ? booking.out_time.Value.ToString(@"HH\:mm") : "null")} (HasValue: {booking.out_time.HasValue})");
+            Logger.Log($"Printing receipt - Booking ID: {booking.booking_id}, Out Time: {(booking.out_time.HasValue ? booking.out_time.Value.ToString(@"hh\:mm") : "null")} (HasValue: {booking.out_time.HasValue})");
 
             var visual = BuildReceiptVisual(
                 billId: booking.booking_id ?? "N/A",
