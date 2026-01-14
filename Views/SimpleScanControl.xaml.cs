@@ -106,7 +106,7 @@ namespace UserModule
             int diffMinutes = outMinutes - inMinutes;
 
             // Handle next-day checkout
-            if (diffMinutes <= 0)
+            if (diffMinutes < 0)
             {
                 diffMinutes += 24 * 60; // Add 24 hours
             }
