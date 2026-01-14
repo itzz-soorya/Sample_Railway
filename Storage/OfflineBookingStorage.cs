@@ -621,7 +621,7 @@ public static class OfflineBookingStorage
             connection.Open();
 
             string query = @"
-            SELECT booking_id, guest_name, phone_number, booking_type, in_time, out_time, status, created_at,
+            SELECT booking_id, guest_name, phone_number, booking_type, booking_date, in_time, out_time, status, created_at,
                    total_amount, paid_amount, balance_amount, worker_id, number_of_persons, total_hours, price_per_person, 
                    COALESCE(room_number, '') as room_number
             FROM Bookings
@@ -639,6 +639,7 @@ public static class OfflineBookingStorage
                     guest_name = reader["guest_name"]?.ToString() ?? string.Empty,
                     phone_number = reader["phone_number"]?.ToString() ?? string.Empty,
                     booking_type = reader["booking_type"]?.ToString() ?? string.Empty,
+                    booking_date = DateTime.TryParse(reader["booking_date"]?.ToString(), out var bDate) ? bDate : DateTime.Today,
                     number_of_persons = Convert.ToInt32(reader["number_of_persons"] ?? 0),
                     total_hours = Convert.ToInt32(reader["total_hours"] ?? 0),
                     price_per_person = Convert.ToDecimal(reader["price_per_person"] ?? 0),

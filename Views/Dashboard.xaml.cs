@@ -801,7 +801,7 @@ namespace UserModule
     }
 
     /// <summary>
-    /// Converter to check if row should be highlighted (critical time and active status)
+    /// Converter to check if row should be highlighted (active booking where end time has passed)
     /// </summary>
     public class CriticalRowBackgroundConverter : IMultiValueConverter
     {
@@ -809,46 +809,39 @@ namespace UserModule
         {
             try
             {
-                if (values == null || values.Length < 2) 
+                if (values == null || values.Length < 4)
                     return false;
 
-                // If status is not "Active", don't highlight
-                if (values[1] is string status)
-                {
-                    if (status.Equals("Completed", StringComparison.OrdinalIgnoreCase) || 
-                        !status.Equals("Active", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return false;
-                    }
-                }
+                // booking_date comes as STRING from SQLite TEXT field
+                if (!DateTime.TryParse(values[0]?.ToString(), out DateTime bookingDate))
+                    return false;
 
-                if (values[0] is TimeSpan outTime)
-                {
-                    TimeSpan now = DateTime.Now.TimeOfDay;
-                    
-                    // Show red if current time has crossed the out_time (booking is overdue)
-                    // Handle midnight crossing: if outTime is earlier in the day than now, 
-                    // check if it's actually tomorrow's time or already passed today
-                    if (now > outTime)
-                    {
-                        // Current time has passed the out_time - booking is overdue
-                        return true;
-                    }
-                    else
-                    {
-                        // Check if within 5 minutes of out_time
-                        TimeSpan remaining = outTime - now;
-                        if (remaining.TotalMinutes <= 5)
-                        {
-                            return true;
-                        }
-                    }
-                }
-                return false;
+                if (!TimeSpan.TryParse(values[1]?.ToString(), out TimeSpan inTime))
+                    return false;
+
+                if (!TimeSpan.TryParse(values[2]?.ToString(), out TimeSpan outTime))
+                    return false;
+
+                string status = values[3]?.ToString() ?? "";
+
+                // Only ACTIVE bookings
+                if (!status.Equals("active", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                DateTime now = DateTime.Now;
+
+                // Calculate real end datetime
+                DateTime endDateTime = bookingDate.Date.Add(outTime);
+
+                // Overnight booking
+                if (outTime < inTime)
+                    endDateTime = endDateTime.AddDays(1);
+
+                // 🔴 RED only if expired (>= ensures exact time match)
+                return now >= endDateTime;
             }
-            catch (Exception ex)
+            catch
             {
-                Logger.LogError(ex);
                 return false;
             }
         }
@@ -860,7 +853,7 @@ namespace UserModule
     }
 
     /// <summary>
-    /// Converter to check if text should be white (critical time and active status)
+    /// Converter to check if text should be white (active booking where end time has passed)
     /// </summary>
     public class CriticalRowForegroundConverter : IMultiValueConverter
     {
@@ -868,35 +861,34 @@ namespace UserModule
         {
             try
             {
-                if (values == null || values.Length < 2)
+                if (values == null || values.Length < 4)
                     return false;
 
-                // If status is not "Active", don't apply white text
-                if (values[1] is string status)
-                {
-                    if (status.Equals("Completed", StringComparison.OrdinalIgnoreCase) || 
-                        !status.Equals("Active", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return false;
-                    }
-                }
+                if (!DateTime.TryParse(values[0]?.ToString(), out DateTime bookingDate))
+                    return false;
 
-                if (values[0] is TimeSpan outTime)
-                {
-                    TimeSpan now = DateTime.Now.TimeOfDay;
-                    TimeSpan remaining = outTime - now;
-                    
-                    // Show white text if: remaining time is <= 5 minutes OR time has already passed
-                    if (remaining.TotalMinutes <= 5)
-                    {
-                        return true;
-                    }
-                }
-                return false;
+                if (!TimeSpan.TryParse(values[1]?.ToString(), out TimeSpan inTime))
+                    return false;
+
+                if (!TimeSpan.TryParse(values[2]?.ToString(), out TimeSpan outTime))
+                    return false;
+
+                string status = values[3]?.ToString() ?? "";
+
+                if (!status.Equals("active", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                DateTime now = DateTime.Now;
+
+                DateTime endDateTime = bookingDate.Date.Add(outTime);
+
+                if (outTime < inTime)
+                    endDateTime = endDateTime.AddDays(1);
+
+                return now >= endDateTime;
             }
-            catch (Exception ex)
+            catch
             {
-                Logger.LogError(ex);
                 return false;
             }
         }

@@ -613,6 +613,8 @@
                                                             <DataTrigger>
                                                                 <DataTrigger.Binding>
                                                                     <MultiBinding Converter="{StaticResource CriticalRowBackgroundConverter}">
+                                                                        <Binding Path="booking_date"/>
+                                                                        <Binding Path="in_time"/>
                                                                         <Binding Path="out_time"/>
                                                                         <Binding Path="status"/>
                                                                     </MultiBinding>
@@ -635,6 +637,8 @@
                                                                 <DataTrigger>
                                                                     <DataTrigger.Binding>
                                                                         <MultiBinding Converter="{StaticResource CriticalRowBackgroundConverter}">
+                                                                            <Binding Path="booking_date"/>
+                                                                            <Binding Path="in_time"/>
                                                                             <Binding Path="out_time"/>
                                                                             <Binding Path="status"/>
                                                                         </MultiBinding>
