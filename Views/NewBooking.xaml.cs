@@ -36,8 +36,6 @@ namespace UserModule
         private readonly DispatcherTimer dateTimeTimer = new DispatcherTimer();
         private int idNumberEnterCount = 0; // Track Enter key presses on ID number field
         private DispatcherTimer enterResetTimer = new DispatcherTimer(); // Timer to reset Enter count
-        private int printButtonEnterCount = 0; // Track Enter key presses on print button
-        private DispatcherTimer printEnterResetTimer = new DispatcherTimer(); // Timer to reset print enter count
 
         // ===== Parameterless constructor for XAML =====
         public NewBooking()
@@ -56,14 +54,6 @@ namespace UserModule
             {
                 idNumberEnterCount = 0;
                 enterResetTimer.Stop();
-            };
-
-            // Initialize Print button enter reset timer
-            printEnterResetTimer.Interval = TimeSpan.FromSeconds(2); // Reset after 2 seconds of inactivity
-            printEnterResetTimer.Tick += (s, e) =>
-            {
-                printButtonEnterCount = 0;
-                printEnterResetTimer.Stop();
             };
 
             txtFirstName.TextChanged += (s, e) => errCustomer.Visibility = Visibility.Collapsed;
@@ -1054,7 +1044,6 @@ namespace UserModule
             // Stop and dispose timers to prevent memory leaks
             dateTimeTimer?.Stop();
             enterResetTimer?.Stop();
-            printEnterResetTimer?.Stop();
         }
 
         private void BillingControl_CloseRequested(object? sender, EventArgs e)
@@ -1437,26 +1426,12 @@ namespace UserModule
 
         /// <summary>
         /// <summary>
-        /// Handle Enter key press on Print button
-        /// </summary>
-        /// <summary>
-        /// Handle mouse clicks on Print button - allow single click
-        /// </summary>
-        private void PrintButton_PreviewMouseDown(object sender, MouseButtonEventArgs e)
-        {
-            // Allow mouse clicks to work normally
-            // The double-Enter requirement only applies to keyboard navigation
-            e.Handled = false;
-        }
-
         /// <summary>
         /// Handle Enter key press in summary card - discount/room number fields only
-        /// NOTE: Print button requires double-Enter key press only
         /// </summary>
         private void SummaryCard_KeyDown(object sender, KeyEventArgs e)
         {
             // Do NOT trigger print from summary card fields
-            // Print button requires explicit double-Enter focus on Print button itself
             if (e.Key == Key.Return)
             {
                 // Move to next field or close overlay
@@ -1480,40 +1455,6 @@ namespace UserModule
 
             // Execute original bill generation logic
             await ExecuteGenerateBill();
-        }
-
-        /// <summary>
-        /// Handle Enter key press on Print button for double-enter confirmation only
-        /// Single Enter or Click will NOT trigger print
-        /// </summary>
-        private void PrintButton_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            try
-            {
-                if (e.Key == Key.Return)
-                {
-                    printButtonEnterCount++;
-                    e.Handled = true;
-
-                    // Reset timer on new press
-                    printEnterResetTimer.Stop();
-                    printEnterResetTimer.Start();
-
-                    if (printButtonEnterCount == 2)
-                    {
-                        // Double Enter - execute print
-                        printButtonEnterCount = 0;
-                        printEnterResetTimer.Stop();
-                        
-                        // Trigger print
-                        PrintButton_Click(sender, new RoutedEventArgs());
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error in PrintButton_PreviewKeyDown: {ex.Message}");
-            }
         }
 
         /// <summary>
@@ -1608,10 +1549,9 @@ namespace UserModule
 
                 int persons = int.TryParse(txtPersons.Text, out var parsedPersons) ? parsedPersons : 0;
                 decimal rate = decimal.TryParse(txtRate.Text, out var r) ? r : 0;
-                decimal paidAmount = 0; // No advance amount
-
                 decimal totalAmount = decimal.TryParse(txtTotalAmount.Text, out var t) ? t : 0;
-                decimal balance = totalAmount - paidAmount;
+                decimal paidAmount = totalAmount; // User pays full amount at booking time
+                decimal balance = 0; // No balance since paid in full
 
                 string? workerId = LocalStorage.GetItem("workerId");
 

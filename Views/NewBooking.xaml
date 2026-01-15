@@ -776,17 +776,16 @@
                         <Grid x:Name="roomNumberGrid" Margin="0,0,0,15" Visibility="Collapsed">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="150"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Room Number" FontSize="14" Foreground="#666" Grid.Column="0"/>
                             <TextBox x:Name="summaryRoomNumber"
                                      Text=""
-                                     FontSize="12"
-                                     FontWeight="DemiBold"
+                                     FontSize="14"
+                                     FontWeight="SemiBold"
                                      Foreground="Black"
                                      Grid.Column="1"
-                                     Width="140"
-                                     Padding="8,5"
+                                     Padding="10,5"
                                      Style="{StaticResource RoundedWatermarkTextBoxStyle}"
                                      Tag="Room #"
                                      PreviewTextInput="NumbersOnly_PreviewTextInput"
@@ -810,6 +809,7 @@
                                      Foreground="Black"
                                      Grid.Column="1"
                                      Padding="10,5"
+                                     Style="{StaticResource RoundedWatermarkTextBoxStyle}"
                                      TextChanged="SummaryDiscount_TextChanged"
                                      PreviewTextInput="NumbersOnly_PreviewTextInput"
                                      DataObject.Pasting="NumbersOnly_Pasting"
@@ -842,8 +842,7 @@
                                     Style="{StaticResource PrimaryButtonStyle}"
                                     Grid.Column="0"
                                     Margin="0,0,10,0"
-                                    PreviewKeyDown="PrintButton_PreviewKeyDown"
-                                    PreviewMouseDown="PrintButton_PreviewMouseDown"
+                                    Click="PrintButton_Click"
                                     IsTabStop="True"/>
                             <Button x:Name="CancelOverlayButton" 
                                     Content="Cancel" 

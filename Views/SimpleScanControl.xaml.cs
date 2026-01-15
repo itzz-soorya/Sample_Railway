@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using UserModule.Models;
+using UserModule.Components;
 
 namespace UserModule
 {
@@ -281,12 +282,42 @@ namespace UserModule
 
             try
             {
+                // If no balance to pay (user left on time, already paid full amount)
                 if (decimal.TryParse(txtBalanceAmount.Text, out decimal balanceAmount) && balanceAmount <= 0)
                 {
-                    MessageBox.Show("No balance to pay! Booking already settled.", "Info",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (currentBooking == null || string.IsNullOrEmpty(currentBooking.booking_id))
+                        return;
+                    
+                    // Auto-complete booking without additional payment
+                    DateTime checkoutDateTime = DateTime.Now;
+                    TimeSpan checkoutTime = checkoutDateTime.TimeOfDay;
+                    
+                    decimal checkoutTotalAmount = decimal.Parse(lblTotalAmount.Text.Replace("₹", ""));
+                    decimal checkoutPaidAmount = decimal.Parse(txtPaidAmount.Text);
+                    
+                    var checkoutResult = await OfflineBookingStorage.CompleteBookingWithPaymentAsync(
+                        currentBooking.booking_id,
+                        checkoutPaidAmount,
+                        checkoutTotalAmount,
+                        0, // No extra charges
+                        currentBooking.payment_method ?? "Cash", // Use original payment method
+                        checkoutTime
+                    );
+
+                    BookingConfirmationDialog.Show(
+                        "Booking closed successfully!",
+                        $"Booking ID: {currentBooking.booking_id}\n" +
+                        $"Customer: {currentBooking.guest_name}\n" +
+                        $"Total Amount: ₹{checkoutTotalAmount:F2}\n" +
+                        $"Already Paid - No Balance\n" +
+                        $"Out Time: {checkoutDateTime:yyyy-MM-dd HH:mm:ss}");
+
+                    Logger.Log($"Booking {currentBooking.booking_id} closed - No extra charges");
+
+                    CloseRequested?.Invoke(this, EventArgs.Empty);
                     return;
                 }
+                
                 if (currentBooking == null)
                 {
                     MessageBox.Show("No booking selected!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -339,14 +370,14 @@ namespace UserModule
 
                 if (success)
                 {
-                    MessageBox.Show($"✅ Payment completed successfully!\n\n" +
-                        $"📋 Booking ID: {currentBooking.booking_id}\n" +
-                        $"👤 Customer: {currentBooking.guest_name}\n" +
-                        $"💰 Total Amount: ₹{totalAmount:F2}\n" +
-                        $"💵 Paid Amount: ₹{paidAmount:F2}\n" +
-                        $"💳 Payment Method: {paymentMethod}\n" +
-                        $"⏰ Out Time: {outDateTime:yyyy-MM-dd HH:mm:ss}", 
-                        "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    BookingConfirmationDialog.Show(
+                        "Payment completed successfully!",
+                        $"Booking ID: {currentBooking.booking_id}\n" +
+                        $"Customer: {currentBooking.guest_name}\n" +
+                        $"Total Amount: ₹{totalAmount:F2}\n" +
+                        $"Paid Amount: ₹{paidAmount:F2}\n" +
+                        $"Payment Method: {paymentMethod}\n" +
+                        $"Out Time: {outDateTime:yyyy-MM-dd HH:mm:ss}");
 
                     Logger.Log($"Payment completed for booking {currentBooking.booking_id} - Amount: {paidAmount}, Method: {paymentMethod}");
 

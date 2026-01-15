@@ -174,14 +174,14 @@ namespace UserModule
                 Margin = new Thickness(printerProfile.LeftMargin, 2, printerProfile.RightMargin, 2),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90, GridUnitType.Pixel) });
-            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90, GridUnitType.Pixel) });
+            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             
             var timeBlock = new TextBlock
             {
                 Text = $"Time {currentInTime.ToString("HH:mm")}",
-                FontSize = 9,
-                FontWeight = FontWeights.SemiBold,
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
                 TextAlignment = TextAlignment.Left,
                 Margin = new Thickness(0, 0, 0, 0)
             };
@@ -190,10 +190,10 @@ namespace UserModule
             var dateBlock = new TextBlock
             {
                 Text = currentInTime.ToString("dd/MM/yyyy"),
-                FontSize = 9,
-                FontWeight = FontWeights.SemiBold,
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
                 TextAlignment = TextAlignment.Right,
-                Margin = new Thickness(0, 0, 0, 0)
+                Margin = new Thickness(0, 0, 20, 0)
             };
             Grid.SetColumn(dateBlock, 1);
             
@@ -304,6 +304,17 @@ namespace UserModule
                     Margin = new Thickness(printerProfile.LeftMargin, 3, printerProfile.RightMargin, 2)
                 });
             }
+
+            // Footer - Powered by AR TECHNOLOGIES (center-aligned)
+            stack.Children.Add(new TextBlock
+            {
+                Text = "Powered by AR TECHNOLOGI",
+                FontSize = 8,
+                FontWeight = FontWeights.SemiBold,
+                TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 5, 0, 2)
+            });
 
             return root;
         }

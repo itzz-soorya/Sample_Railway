@@ -47,7 +47,7 @@ namespace UserModule
                     DPI = 203,
                     BarcodeWidth = 250,
                     BarcodeHeight = 45,
-                    LeftMargin = 6,
+                    LeftMargin = 22,
                     RightMargin = 8
                 };
             }
