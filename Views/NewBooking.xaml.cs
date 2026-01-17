@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -41,6 +42,10 @@ namespace UserModule
         public NewBooking()
         {
             InitializeComponent();
+
+            // Hook into items collection changed event to update layout dynamically
+            txtSeats.ItemsSource = new System.Collections.ObjectModel.ObservableCollection<ComboBoxItem>();
+            ((System.Collections.ObjectModel.ObservableCollection<ComboBoxItem>)txtSeats.ItemsSource).CollectionChanged += (s, e) => UpdateSeatTypeLayout();
 
             // Load seating types on page load
             this.Loaded += NewBooking_Loaded;
@@ -168,8 +173,9 @@ namespace UserModule
         /// </summary>
         private void ConfigureSeatingOptions(int seatingTypes)
         {
-            // Clear existing items except placeholder
-            txtSeats.Items.Clear();
+            // Get the ObservableCollection
+            var itemsCollection = (System.Collections.ObjectModel.ObservableCollection<ComboBoxItem>)txtSeats.ItemsSource;
+            itemsCollection.Clear();
             
             // Add placeholder
             var placeholder = new ComboBoxItem
@@ -180,13 +186,13 @@ namespace UserModule
                 Style = (Style)FindResource("WhiteComboBoxItemStyle")
             };
             placeholder.Name = "seatsPlaceholder";
-            txtSeats.Items.Add(placeholder);
+            itemsCollection.Add(placeholder);
 
             // Add items based on seating_types
             switch (seatingTypes)
             {
                 case 0: // Only Sitting
-                    txtSeats.Items.Add(new ComboBoxItem
+                    itemsCollection.Add(new ComboBoxItem
                     {
                         Content = "Sitting",
                         Style = (Style)FindResource("WhiteComboBoxItemStyle")
@@ -194,7 +200,7 @@ namespace UserModule
                     break;
 
                 case 1: // Only Sleeping (Sleeper)
-                    txtSeats.Items.Add(new ComboBoxItem
+                    itemsCollection.Add(new ComboBoxItem
                     {
                         Content = "Sleeper",
                         Style = (Style)FindResource("WhiteComboBoxItemStyle")
@@ -203,12 +209,12 @@ namespace UserModule
 
                 case 2: // Both
                 default:
-                    txtSeats.Items.Add(new ComboBoxItem
+                    itemsCollection.Add(new ComboBoxItem
                     {
                         Content = "Sitting",
                         Style = (Style)FindResource("WhiteComboBoxItemStyle")
                     });
-                    txtSeats.Items.Add(new ComboBoxItem
+                    itemsCollection.Add(new ComboBoxItem
                     {
                         Content = "Sleeper",
                         Style = (Style)FindResource("WhiteComboBoxItemStyle")
@@ -229,6 +235,52 @@ namespace UserModule
                 // Multiple options - allow user to select
                 txtSeats.SelectedIndex = 0; // Select placeholder
                 txtSeats.IsEnabled = true; // Enable ComboBox for user selection
+            }
+
+            // Update layout immediately
+            UpdateSeatTypeLayout();
+        }
+
+        /// <summary>
+        /// Update the UI layout based on Seat Type item count
+        /// This is called whenever items are added/removed from the Seat Type ComboBox
+        /// </summary>
+        private void UpdateSeatTypeLayout()
+        {
+            // Ensure controls are initialized
+            if (seatTypeStackPanel == null || hoursStackPanel == null || txtSeats == null)
+            {
+                System.Diagnostics.Debug.WriteLine("UpdateSeatTypeLayout: Controls not initialized");
+                return;
+            }
+
+            // Get the actual item count from ItemsSource (ObservableCollection)
+            int itemCount = 0;
+            if (txtSeats.ItemsSource is System.Collections.ObjectModel.ObservableCollection<ComboBoxItem> collection)
+            {
+                itemCount = collection.Count;
+            }
+            else
+            {
+                itemCount = txtSeats.Items.Count;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"UpdateSeatTypeLayout: Item count = {itemCount}");
+
+            // If itemCount <= 2, it means only placeholder + 1 real option
+            // Hide Seat Type and move Total Hours to Column 1
+            if (itemCount <= 2)
+            {
+                System.Diagnostics.Debug.WriteLine("UpdateSeatTypeLayout: Hiding Seat Type, moving Total Hours to Column 1");
+                seatTypeStackPanel.Visibility = Visibility.Collapsed;
+                Grid.SetColumn(hoursStackPanel, 1);
+            }
+            else
+            {
+                // Multiple options - show Seat Type and move back to normal positions
+                System.Diagnostics.Debug.WriteLine("UpdateSeatTypeLayout: Showing Seat Type, moving Total Hours to Column 2");
+                seatTypeStackPanel.Visibility = Visibility.Visible;
+                Grid.SetColumn(hoursStackPanel, 2);
             }
         }
 
@@ -2253,8 +2305,9 @@ namespace UserModule
                 // Get booking types from database
                 var bookingTypes = OfflineBookingStorage.GetBookingTypes();
 
-                // Clear existing items except the placeholder
-                txtSeats.Items.Clear();
+                // Get the ObservableCollection from ItemsSource
+                var itemsCollection = (System.Collections.ObjectModel.ObservableCollection<ComboBoxItem>)txtSeats.ItemsSource;
+                itemsCollection.Clear();
                 
                 // Re-add placeholder
                 var placeholderItem = new ComboBoxItem
@@ -2265,8 +2318,7 @@ namespace UserModule
                     Style = (Style)FindResource("WhiteComboBoxItemStyle")
                 };
                 placeholderItem.Name = "seatsPlaceholder";
-                placeholderItem.SetValue(System.Windows.Controls.Primitives.Selector.IsSelectedProperty, true);
-                txtSeats.Items.Add(placeholderItem);
+                itemsCollection.Add(placeholderItem);
 
                 // Add booking types from database
                 if (bookingTypes.Count > 0)
@@ -2279,7 +2331,7 @@ namespace UserModule
                             Tag = type.Amount, // Store amount in Tag for easy access
                             Style = (Style)FindResource("WhiteComboBoxItemStyle")
                         };
-                        txtSeats.Items.Add(item);
+                        itemsCollection.Add(item);
                     }
 
                     Logger.Log($"Loaded {bookingTypes.Count} booking types from database");
@@ -2297,11 +2349,15 @@ namespace UserModule
                 
                 // Set initial foreground color to grey (placeholder color)
                 SetForegroundColor(txtSeats, true);
+                
+                // Update layout based on item count
+                UpdateSeatTypeLayout();
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex);
-                MessageBox.Show($"Error loading booking types",
+                System.Diagnostics.Debug.WriteLine($"Exception in LoadBookingTypesFromDatabase: {ex.Message}\n{ex.StackTrace}");
+                MessageBox.Show($"Error loading booking types: {ex.Message}",
                     "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -2661,16 +2717,14 @@ namespace UserModule
     }
 
     /// <summary>
-    /// Converter to collapse Seat Type component when item is selected from API
-    /// Shows the component when no selection (SelectedIndex -1 or 0)
-    /// Hides the component when item is selected (SelectedIndex > 0)
+    /// Converter to collapse label when ComboBox has a selection
     /// </summary>
     public class SelectedItemToVisibilityConverter : System.Windows.Data.IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
         {
-            // If SelectedIndex is -1 (no selection) or 0 (placeholder), show the component
-            // Otherwise (SelectedIndex > 0), collapse it when API item is selected
+            // If SelectedIndex is -1 (no selection) or 0 (placeholder), show the label
+            // Otherwise, collapse it
             if (value is int index)
             {
                 return index > 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -2683,4 +2737,74 @@ namespace UserModule
             throw new NotImplementedException();
         }
     }
+
+    /// <summary>
+    /// Converts Item Count to Visibility for Seat Type
+    /// If only 1 item exists (placeholder only): Collapse
+    /// If more than 1 item exists (has actual options): Show
+    /// </summary>
+    public class ItemCountToVisibilityConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is int count)
+            {
+                // If more than 1 item (placeholder + options), show; otherwise hide
+                return count > 1 ? Visibility.Visible : Visibility.Collapsed;
+            }
+            return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converts Item Count to Grid.Column for Seat Type
+    /// If 1 item (placeholder only): Column = 2 (hidden/off to the right)
+    /// If more than 1 item (has actual options): Column = 1 (middle position)
+    /// </summary>
+    public class ItemCountToSeatTypeColumnConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is int count)
+            {
+                // If more than 1 item, show in column 1; otherwise put in column 2
+                return count > 1 ? 1 : 2;
+            }
+            return 2;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converts Item Count to Grid.Column for Total Hours
+    /// If 1 item (placeholder only): Column = 1 (left position)
+    /// If more than 1 item (has actual options): Column = 2 (right position)
+    /// </summary>
+    public class ItemCountToHoursColumnConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is int count)
+            {
+                // If only placeholder, Total Hours moves to column 1; otherwise stays at column 2
+                return count > 1 ? 2 : 1;
+            }
+            return 2;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }
+

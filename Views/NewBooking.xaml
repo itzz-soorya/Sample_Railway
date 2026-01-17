@@ -15,6 +15,12 @@
     <UserControl.Resources>
         <!-- Converter to collapse component when ComboBox has selection -->
         <local:SelectedItemToVisibilityConverter x:Key="SelectedItemToVisibilityConverter"/>
+        <!-- Converter for dynamic Seat Type visibility based on item count -->
+        <local:ItemCountToVisibilityConverter x:Key="ItemCountToVisibilityConverter"/>
+        <!-- Converter for dynamic Seat Type column position based on item count -->
+        <local:ItemCountToSeatTypeColumnConverter x:Key="ItemCountToSeatTypeColumnConverter"/>
+        <!-- Converter for dynamic Total Hours column position based on item count -->
+        <local:ItemCountToHoursColumnConverter x:Key="ItemCountToHoursColumnConverter"/>
         
         <!-- Style for rounded TextBox with visible border and watermark -->
         <Style x:Key="RoundedWatermarkTextBoxStyle" TargetType="TextBox">
@@ -403,7 +409,7 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- Number of Persons -->
-                            <StackPanel Grid.Column="0" Margin="0,0,15,12" Background="Transparent">
+                            <StackPanel Grid.Column="0" Margin="0,0,8,12" Background="Transparent">
                                 <TextBlock Text="Number of Persons" FontWeight="SemiBold" FontSize="14" Foreground="#333" Margin="0,0,0,8"/>
                                 <TextBox x:Name="txtPersons" Style="{StaticResource RoundedWatermarkTextBoxStyle}" Tag="Enter number" Foreground="Black" FontWeight="DemiBold" Height="40" PreviewKeyDown="Control_PreviewKeyDown" PreviewTextInput="NumbersOnly_PreviewTextInput" DataObject.Pasting="NumbersOnly_Pasting"/>
                                 <TextBlock x:Name="errPersons" Text="* Fill Number of Persons" Foreground="#CC1F1F" FontSize="12" Visibility="Collapsed" Margin="5,2,0,0"/>
@@ -412,7 +418,7 @@
                             
 
                             <!-- Total Hours -->
-                            <StackPanel Grid.Column="1" Margin="0,0,15,12">
+                            <StackPanel x:Name="hoursStackPanel" Grid.Column="2" Margin="0,0,8,12">
                                 <TextBlock Text="Total Hours" FontWeight="SemiBold" FontSize="14" Foreground="#333" Margin="0,0,0,8"/>
                                 <ComboBox x:Name="txtHours"
                                     Height="40"
@@ -446,7 +452,7 @@
                             </StackPanel>
 
                             <!-- Seat Type -->
-                            <StackPanel Grid.Column="2" Margin="0,0,15,12" Visibility="{Binding ElementName=txtSeats, Path=SelectedIndex, Converter={StaticResource SelectedItemToVisibilityConverter}}">
+                            <StackPanel x:Name="seatTypeStackPanel" Grid.Column="1" Margin="0,0,8,12" Visibility="Collapsed">
                                 <TextBlock Text="Seat Type" FontWeight="SemiBold" FontSize="14" Foreground="#333" Margin="0,0,0,8"/>
                                 <ComboBox x:Name="txtSeats"
                                  Height="40"
