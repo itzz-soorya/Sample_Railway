@@ -2659,4 +2659,28 @@ namespace UserModule
             }
         }
     }
+
+    /// <summary>
+    /// Converter to collapse Seat Type component when item is selected from API
+    /// Shows the component when no selection (SelectedIndex -1 or 0)
+    /// Hides the component when item is selected (SelectedIndex > 0)
+    /// </summary>
+    public class SelectedItemToVisibilityConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            // If SelectedIndex is -1 (no selection) or 0 (placeholder), show the component
+            // Otherwise (SelectedIndex > 0), collapse it when API item is selected
+            if (value is int index)
+            {
+                return index > 0 ? Visibility.Collapsed : Visibility.Visible;
+            }
+            return Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

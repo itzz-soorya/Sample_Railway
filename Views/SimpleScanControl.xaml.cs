@@ -44,7 +44,60 @@ namespace UserModule
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            CloseRequested?.Invoke(this, EventArgs.Empty);
+            // Refresh the page - reset to initial state (scan section)
+            ResetPage();
+        }
+
+        /// <summary>
+        /// Resets the SimpleScanControl page to its initial state
+        /// </summary>
+        private void ResetPage()
+        {
+            try
+            {
+                // Clear the scan input field
+                if (txtTest != null)
+                {
+                    txtTest.Clear();
+                    txtTest.Focus();
+                }
+
+                // Hide payment section and show scan section
+                if (ScanSection != null)
+                    ScanSection.Visibility = Visibility.Visible;
+                
+                if (PaymentSection != null)
+                    PaymentSection.Visibility = Visibility.Collapsed;
+
+                // Reset payment form fields
+                if (txtPaidAmount != null)
+                    txtPaidAmount.Text = "₹0";
+
+                if (txtBalanceAmount != null)
+                    txtBalanceAmount.Text = "₹0";
+
+                if (cmbPaymentMethod != null)
+                    cmbPaymentMethod.SelectedIndex = 0;
+
+                if (errPaymentMethod != null)
+                    errPaymentMethod.Visibility = Visibility.Collapsed;
+
+                if (btnCompletePayment != null)
+                    btnCompletePayment.IsEnabled = false;
+
+                // Reset current booking
+                currentBooking = null;
+
+                // Reset out time to current time
+                if (txtOutTime != null)
+                    txtOutTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                Logger.Log("SimpleScanControl page refreshed");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+            }
         }
 
         private void txtTest_PreviewKeyDown(object sender, KeyEventArgs e)
