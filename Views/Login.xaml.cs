@@ -181,7 +181,7 @@ namespace UserModule
                 {
                     client.Timeout = TimeSpan.FromSeconds(6);
 
-                    HttpResponseMessage response = await client.PostAsync("https://railway-worker-backend.artechnology.pro/api/Login/check", content);
+                    HttpResponseMessage response = await client.PostAsync("https://railway-api-worker.artechnology.pro/api/Login/check", content);
                     
                     // Console log: Response status
                     //Console.WriteLine("\n=== API RESPONSE ===");
