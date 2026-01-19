@@ -81,11 +81,16 @@ namespace UserModule
 
                 if (localBookings != null && localBookings.Any())
                 {
+                    // Get current worker ID
+                    string? currentWorkerId = LocalStorage.GetItem("workerId");
+                    
                     // Filter to only show bookings created in the last 2 weeks using created_at
                     DateTime twoWeeksAgo = DateTime.Now.AddDays(-14);
                     
                     allBookings = localBookings
-                        .Where(b => b.created_at.HasValue && b.created_at.Value >= twoWeeksAgo)
+                        .Where(b => b.created_at.HasValue && b.created_at.Value >= twoWeeksAgo
+                                    && (b.worker_id == currentWorkerId || 
+                                        b.status?.ToLower() == "active"))
                         .OrderByDescending(b => b.created_at)
                         .ToList();
                     
