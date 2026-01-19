@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.Linq;
 using System.Net.NetworkInformation;
@@ -22,12 +23,19 @@ namespace UserModule
         private Dictionary<string, int> bookingTypeCounts = new Dictionary<string, int>();
         private Dictionary<string, TextBlock> typeTextBlocks = new Dictionary<string, TextBlock>();
         private string currentFilter = "All"; // Track current filter state
+        private DispatcherTimer? refreshTimer;
 
         public Dashboard()
         {
             InitializeComponent();
             DataContext = this;
             BookingDataGrid.ItemsSource = Bookings;
+
+            // Start timer to refresh converters every second
+            refreshTimer = new DispatcherTimer();
+            refreshTimer.Interval = TimeSpan.FromSeconds(1);
+            refreshTimer.Tick += (s, e) => RefreshDataGridView();
+            refreshTimer.Start();
 
             try
             {
@@ -51,6 +59,15 @@ namespace UserModule
             {
                 Logger.LogError(ex);
                 MessageBox.Show("An error occurred while loading the dashboard.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RefreshDataGridView()
+        {
+            // Force DataGrid to refresh bindings/triggers
+            if (BookingDataGrid != null && BookingDataGrid.ItemsSource is INotifyCollectionChanged)
+            {
+                BookingDataGrid.InvalidateVisual();
             }
         }
 
@@ -718,6 +735,165 @@ namespace UserModule
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converter to format booking type with room number for Sleeper bookings
+    /// </summary>
+    public class BookingTypeConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (values == null || values.Length < 2) return string.Empty;
+
+            string? bookingType = values[0] as string;
+            string? roomNumber = values[1] as string;
+
+            if (string.IsNullOrWhiteSpace(bookingType))
+                return string.Empty;
+
+            // If Sleeper and room number exists, format as "Sleeper(num)"
+            if (bookingType.Equals("Sleeper", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(roomNumber))
+            {
+                return $"{bookingType}({roomNumber})";
+            }
+
+            return bookingType;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converter to check if booking has 5 minutes or less remaining
+    /// </summary>
+    public class RemainingTimeChecker : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is TimeSpan outTime)
+            {
+                // Get current time
+                TimeSpan now = DateTime.Now.TimeOfDay;
+                
+                // Calculate remaining time
+                TimeSpan remaining = outTime - now;
+                
+                // If remaining time is 5 minutes or less (and positive), return true
+                if (remaining.TotalSeconds > 0 && remaining.TotalMinutes <= 5)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converter to check if row should be highlighted (active booking where end time has passed)
+    /// </summary>
+    public class CriticalRowBackgroundConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            try
+            {
+                if (values == null || values.Length < 4)
+                    return false;
+
+                // booking_date comes as STRING from SQLite TEXT field
+                if (!DateTime.TryParse(values[0]?.ToString(), out DateTime bookingDate))
+                    return false;
+
+                if (!TimeSpan.TryParse(values[1]?.ToString(), out TimeSpan inTime))
+                    return false;
+
+                if (!TimeSpan.TryParse(values[2]?.ToString(), out TimeSpan outTime))
+                    return false;
+
+                string status = values[3]?.ToString() ?? "";
+
+                // Only ACTIVE bookings
+                if (!status.Equals("active", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                DateTime now = DateTime.Now;
+
+                // Calculate real end datetime
+                DateTime endDateTime = bookingDate.Date.Add(outTime);
+
+                // Overnight booking
+                if (outTime < inTime)
+                    endDateTime = endDateTime.AddDays(1);
+
+                // 🔴 RED only if expired (>= ensures exact time match)
+                return now >= endDateTime;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converter to check if text should be white (active booking where end time has passed)
+    /// </summary>
+    public class CriticalRowForegroundConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            try
+            {
+                if (values == null || values.Length < 4)
+                    return false;
+
+                if (!DateTime.TryParse(values[0]?.ToString(), out DateTime bookingDate))
+                    return false;
+
+                if (!TimeSpan.TryParse(values[1]?.ToString(), out TimeSpan inTime))
+                    return false;
+
+                if (!TimeSpan.TryParse(values[2]?.ToString(), out TimeSpan outTime))
+                    return false;
+
+                string status = values[3]?.ToString() ?? "";
+
+                if (!status.Equals("active", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                DateTime now = DateTime.Now;
+
+                DateTime endDateTime = bookingDate.Date.Add(outTime);
+
+                if (outTime < inTime)
+                    endDateTime = endDateTime.AddDays(1);
+
+                return now >= endDateTime;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }

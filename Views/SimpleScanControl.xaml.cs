@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using UserModule.Models;
+using UserModule.Components;
 
 namespace UserModule
 {
@@ -43,7 +44,60 @@ namespace UserModule
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            CloseRequested?.Invoke(this, EventArgs.Empty);
+            // Refresh the page - reset to initial state (scan section)
+            ResetPage();
+        }
+
+        /// <summary>
+        /// Resets the SimpleScanControl page to its initial state
+        /// </summary>
+        private void ResetPage()
+        {
+            try
+            {
+                // Clear the scan input field
+                if (txtTest != null)
+                {
+                    txtTest.Clear();
+                    txtTest.Focus();
+                }
+
+                // Hide payment section and show scan section
+                if (ScanSection != null)
+                    ScanSection.Visibility = Visibility.Visible;
+                
+                if (PaymentSection != null)
+                    PaymentSection.Visibility = Visibility.Collapsed;
+
+                // Reset payment form fields
+                if (txtPaidAmount != null)
+                    txtPaidAmount.Text = "₹0";
+
+                if (txtBalanceAmount != null)
+                    txtBalanceAmount.Text = "₹0";
+
+                if (cmbPaymentMethod != null)
+                    cmbPaymentMethod.SelectedIndex = 0;
+
+                if (errPaymentMethod != null)
+                    errPaymentMethod.Visibility = Visibility.Collapsed;
+
+                if (btnCompletePayment != null)
+                    btnCompletePayment.IsEnabled = false;
+
+                // Reset current booking
+                currentBooking = null;
+
+                // Reset out time to current time
+                if (txtOutTime != null)
+                    txtOutTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                Logger.Log("SimpleScanControl page refreshed");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+            }
         }
 
         private void txtTest_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -106,7 +160,7 @@ namespace UserModule
             int diffMinutes = outMinutes - inMinutes;
 
             // Handle next-day checkout
-            if (diffMinutes <= 0)
+            if (diffMinutes < 0)
             {
                 diffMinutes += 24 * 60; // Add 24 hours
             }
@@ -281,12 +335,42 @@ namespace UserModule
 
             try
             {
+                // If no balance to pay (user left on time, already paid full amount)
                 if (decimal.TryParse(txtBalanceAmount.Text, out decimal balanceAmount) && balanceAmount <= 0)
                 {
-                    MessageBox.Show("No balance to pay! Booking already settled.", "Info",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (currentBooking == null || string.IsNullOrEmpty(currentBooking.booking_id))
+                        return;
+                    
+                    // Auto-complete booking without additional payment
+                    DateTime checkoutDateTime = DateTime.Now;
+                    TimeSpan checkoutTime = checkoutDateTime.TimeOfDay;
+                    
+                    decimal checkoutTotalAmount = decimal.Parse(lblTotalAmount.Text.Replace("₹", ""));
+                    decimal checkoutPaidAmount = decimal.Parse(txtPaidAmount.Text);
+                    
+                    var checkoutResult = await OfflineBookingStorage.CompleteBookingWithPaymentAsync(
+                        currentBooking.booking_id,
+                        checkoutPaidAmount,
+                        checkoutTotalAmount,
+                        0, // No extra charges
+                        currentBooking.payment_method ?? "Cash", // Use original payment method
+                        checkoutTime
+                    );
+
+                    BookingConfirmationDialog.Show(
+                        "Booking closed successfully!",
+                        $"Booking ID: {currentBooking.booking_id}\n" +
+                        $"Customer: {currentBooking.guest_name}\n" +
+                        $"Total Amount: ₹{checkoutTotalAmount:F2}\n" +
+                        $"Already Paid - No Balance\n" +
+                        $"Out Time: {checkoutDateTime:yyyy-MM-dd HH:mm:ss}");
+
+                    Logger.Log($"Booking {currentBooking.booking_id} closed - No extra charges");
+
+                    CloseRequested?.Invoke(this, EventArgs.Empty);
                     return;
                 }
+                
                 if (currentBooking == null)
                 {
                     MessageBox.Show("No booking selected!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -339,14 +423,14 @@ namespace UserModule
 
                 if (success)
                 {
-                    MessageBox.Show($"✅ Payment completed successfully!\n\n" +
-                        $"📋 Booking ID: {currentBooking.booking_id}\n" +
-                        $"👤 Customer: {currentBooking.guest_name}\n" +
-                        $"💰 Total Amount: ₹{totalAmount:F2}\n" +
-                        $"💵 Paid Amount: ₹{paidAmount:F2}\n" +
-                        $"💳 Payment Method: {paymentMethod}\n" +
-                        $"⏰ Out Time: {outDateTime:yyyy-MM-dd HH:mm:ss}", 
-                        "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    BookingConfirmationDialog.Show(
+                        "Payment completed successfully!",
+                        $"Booking ID: {currentBooking.booking_id}\n" +
+                        $"Customer: {currentBooking.guest_name}\n" +
+                        $"Total Amount: ₹{totalAmount:F2}\n" +
+                        $"Paid Amount: ₹{paidAmount:F2}\n" +
+                        $"Payment Method: {paymentMethod}\n" +
+                        $"Out Time: {outDateTime:yyyy-MM-dd HH:mm:ss}");
 
                     Logger.Log($"Payment completed for booking {currentBooking.booking_id} - Amount: {paidAmount}, Method: {paymentMethod}");
 
@@ -357,19 +441,8 @@ namespace UserModule
                     currentBooking.out_time = outTime; // Set the out_time for receipt
                     currentBooking.payment_method = paymentMethod;
 
-                    // Print the final receipt with out time
-                    try
-                    {
-                        bool printed = ReceiptHelper.GenerateAndPrintReceipt(currentBooking, null, (double)extraCharges);
-                        if (!printed)
-                        {
-                            Logger.Log("Warning: Receipt printing failed after payment completion");
-                        }
-                    }
-                    catch (Exception printEx)
-                    {
-                        Logger.LogError(printEx);
-                    }
+                    // No automatic printing after closing - user can manually print if needed
+                    // Printing was removed to avoid duplicate receipts
 
                     // Close the control
                     CloseRequested?.Invoke(this, EventArgs.Empty);

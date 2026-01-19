@@ -57,12 +57,28 @@ public static class OfflineBookingStorage
             created_at TEXT,
             updated_at TEXT,
             status TEXT,
-            IsSynced INTEGER DEFAULT 0
+            IsSynced INTEGER DEFAULT 0,
+            room_number TEXT
         );";
 
         using (var cmd = new SqliteCommand(createBookingsTable, connection))
         {
             cmd.ExecuteNonQuery();
+        }
+
+        // Add room_number column if it doesn't exist (migration for existing databases)
+        try
+        {
+            string addRoomNumberColumn = @"
+            ALTER TABLE Bookings ADD COLUMN room_number TEXT;";
+            using (var cmd = new SqliteCommand(addRoomNumberColumn, connection))
+            {
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch
+        {
+            // Column already exists, ignore error
         }
 
         // Drop old Settings table to recreate with new schema
@@ -120,10 +136,10 @@ public static class OfflineBookingStorage
         INSERT OR REPLACE INTO Bookings
         (booking_id, worker_id, guest_name, phone_number, number_of_persons, booking_type, total_hours,
          booking_date, in_time, out_time, proof_type, proof_id, price_per_person, total_amount, paid_amount,
-         balance_amount, payment_method, created_at, updated_at, status, IsSynced)
+         balance_amount, payment_method, created_at, updated_at, status, IsSynced, room_number)
         VALUES (@booking_id, @worker_id, @guest_name, @phone_number, @number_of_persons, @booking_type, @total_hours,
                 @booking_date, @in_time, @out_time, @proof_type, @proof_id, @price_per_person, @total_amount, 
-                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 0);";
+                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 0, @room_number);";
 
         using var cmd = new SqliteCommand(insert, connection);
         cmd.Parameters.AddWithValue("@booking_id", booking.booking_id);
@@ -149,6 +165,7 @@ public static class OfflineBookingStorage
             string.IsNullOrWhiteSpace(booking.status)
             ? "active"
             : booking.status.ToLower());
+        cmd.Parameters.AddWithValue("@room_number", booking.room_number ?? "");
         cmd.ExecuteNonQuery();
     }
 
@@ -243,10 +260,10 @@ public static class OfflineBookingStorage
         INSERT OR REPLACE INTO Bookings
         (booking_id, worker_id, guest_name, phone_number, number_of_persons, booking_type, total_hours,
          booking_date, in_time, out_time, proof_type, proof_id, price_per_person, total_amount, paid_amount,
-         balance_amount, payment_method, created_at, updated_at, status, IsSynced)
+         balance_amount, payment_method, created_at, updated_at, status, IsSynced, room_number)
         VALUES (@booking_id, @worker_id, @guest_name, @phone_number, @number_of_persons, @booking_type, @total_hours,
                 @booking_date, @in_time, @out_time, @proof_type, @proof_id, @price_per_person, @total_amount, 
-                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 1);";
+                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 1, @room_number);";
 
         using var cmd = new SqliteCommand(insert, connection);
         cmd.Parameters.AddWithValue("@booking_id", booking.booking_id);
@@ -272,6 +289,7 @@ public static class OfflineBookingStorage
             string.IsNullOrWhiteSpace(booking.status)
             ? "active"
             : booking.status.ToLower());
+        cmd.Parameters.AddWithValue("@room_number", booking.room_number ?? "");
         cmd.ExecuteNonQuery();
     }
 
@@ -597,40 +615,50 @@ public static class OfflineBookingStorage
     {
         var bookings = new List<Booking1>();
 
-        using var connection = new SqliteConnection($"Data Source={DbPath}");
-        connection.Open();
-
-        string query = @"
-        SELECT booking_id, guest_name, phone_number, booking_type, in_time, out_time, status, created_at,
-               total_amount, paid_amount, balance_amount, worker_id, number_of_persons, total_hours, price_per_person
-        FROM Bookings
-        ORDER BY created_at DESC;";
-
-        using var cmd = new SqliteCommand(query, connection);
-        using var reader = cmd.ExecuteReader();
-
-        while (reader.Read())
+        try
         {
-            bookings.Add(new Booking1
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+
+            string query = @"
+            SELECT booking_id, guest_name, phone_number, booking_type, booking_date, in_time, out_time, status, created_at,
+                   total_amount, paid_amount, balance_amount, worker_id, number_of_persons, total_hours, price_per_person, 
+                   COALESCE(room_number, '') as room_number
+            FROM Bookings
+            ORDER BY created_at DESC;";
+
+            using var cmd = new SqliteCommand(query, connection);
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
             {
-                booking_id = reader["booking_id"]?.ToString() ?? string.Empty,
-                worker_id = reader["worker_id"]?.ToString() ?? string.Empty,
-                guest_name = reader["guest_name"]?.ToString() ?? string.Empty,
-                phone_number = reader["phone_number"]?.ToString() ?? string.Empty,
-                booking_type = reader["booking_type"]?.ToString() ?? string.Empty,
-                number_of_persons = Convert.ToInt32(reader["number_of_persons"] ?? 0),
-                total_hours = Convert.ToInt32(reader["total_hours"] ?? 0),
-                price_per_person = Convert.ToDecimal(reader["price_per_person"] ?? 0),
-                total_amount = Convert.ToDecimal(reader["total_amount"] ?? 0),
-                paid_amount = Convert.ToDecimal(reader["paid_amount"] ?? 0),
-                balance_amount = Convert.ToDecimal(reader["balance_amount"] ?? 0),
-                in_time = TimeSpan.TryParse(reader["in_time"]?.ToString(), out var inT) ? inT : TimeSpan.Zero,
-                out_time = TimeSpan.TryParse(reader["out_time"]?.ToString(), out var outT) ? outT : TimeSpan.Zero,
-                status = reader["status"]?.ToString() ?? string.Empty,
-                created_at = reader["created_at"] != DBNull.Value && DateTime.TryParse(reader["created_at"]?.ToString(), out var createdAt) 
-                    ? createdAt 
-                    : (DateTime?)null
-            });
+                bookings.Add(new Booking1
+                {
+                    booking_id = reader["booking_id"]?.ToString() ?? string.Empty,
+                    worker_id = reader["worker_id"]?.ToString() ?? string.Empty,
+                    guest_name = reader["guest_name"]?.ToString() ?? string.Empty,
+                    phone_number = reader["phone_number"]?.ToString() ?? string.Empty,
+                    booking_type = reader["booking_type"]?.ToString() ?? string.Empty,
+                    booking_date = DateTime.TryParse(reader["booking_date"]?.ToString(), out var bDate) ? bDate : DateTime.Today,
+                    number_of_persons = Convert.ToInt32(reader["number_of_persons"] ?? 0),
+                    total_hours = Convert.ToInt32(reader["total_hours"] ?? 0),
+                    price_per_person = Convert.ToDecimal(reader["price_per_person"] ?? 0),
+                    total_amount = Convert.ToDecimal(reader["total_amount"] ?? 0),
+                    paid_amount = Convert.ToDecimal(reader["paid_amount"] ?? 0),
+                    balance_amount = Convert.ToDecimal(reader["balance_amount"] ?? 0),
+                    in_time = TimeSpan.TryParse(reader["in_time"]?.ToString(), out var inT) ? inT : TimeSpan.Zero,
+                    out_time = TimeSpan.TryParse(reader["out_time"]?.ToString(), out var outT) ? outT : TimeSpan.Zero,
+                    status = reader["status"]?.ToString() ?? string.Empty,
+                    room_number = reader["room_number"]?.ToString(),
+                    created_at = reader["created_at"] != DBNull.Value && DateTime.TryParse(reader["created_at"]?.ToString(), out var createdAt) 
+                        ? createdAt 
+                        : (DateTime?)null
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
         }
 
         return bookings;
@@ -1767,11 +1795,16 @@ public static class OfflineBookingStorage
 
         try
         {
+            // Get current admin_id from LocalStorage
+            string currentAdminId = LocalStorage.GetItem("adminId") ?? "";
+            
             using var connection = new SqliteConnection($"Data Source={DbPath}");
             connection.Open();
 
-            string query = "SELECT * FROM HourlyPricing ORDER BY min_hours";
+            // Only get tiers for the current admin_id
+            string query = "SELECT * FROM HourlyPricing WHERE admin_id = @admin_id ORDER BY min_hours";
             using var cmd = new SqliteCommand(query, connection);
+            cmd.Parameters.AddWithValue("@admin_id", currentAdminId);
             using var reader = cmd.ExecuteReader();
 
             while (reader.Read())

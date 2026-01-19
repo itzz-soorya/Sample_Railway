@@ -1,4 +1,5 @@
-﻿﻿using System;
+﻿﻿//printer helper
+using System;
 using System.Drawing.Printing;
 using System.IO;
 using System.Management;
@@ -46,7 +47,7 @@ namespace UserModule
                     DPI = 203,
                     BarcodeWidth = 250,
                     BarcodeHeight = 45,
-                    LeftMargin = 14,
+                    LeftMargin = 22,
                     RightMargin = 8
                 };
             }

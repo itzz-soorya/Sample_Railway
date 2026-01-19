@@ -10,6 +10,7 @@ namespace UserModule.Models
         public string? Name { get; set; }
         public string? PhoneNo { get; set; }
         public string? SeatType { get; set; }
+        public string? RoomNumber { get; set; }
         public int NumberOfPersons { get; set; }
         public int TotalHours { get; set; }
         public DateTime? StartTime { get; set; }

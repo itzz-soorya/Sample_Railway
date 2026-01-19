@@ -11,10 +11,13 @@
              VerticalAlignment="Stretch"
              MinHeight="600" 
              MinWidth="800">
-
     <UserControl.Resources>
+        <local:BookingTypeConverter x:Key="BookingTypeConverter"/>
         <!-- Booking ID Converter -->
         <local:BookingIdConverter x:Key="BookingIdConverter"/>
+        <!-- Critical Row Converters -->
+        <local:CriticalRowBackgroundConverter x:Key="CriticalRowBackgroundConverter"/>
+        <local:CriticalRowForegroundConverter x:Key="CriticalRowForegroundConverter"/>
         <!-- Header Button Style -->
         <Style TargetType="Button" x:Key="HeaderButtonStyle">
             <Setter Property="Foreground" Value="White"/>
@@ -440,6 +443,7 @@
                                     <Setter Property="Background" Value="Transparent"/>
                                     <Setter Property="HorizontalAlignment" Value="Stretch"/>
                                     <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridRow}}"/>
                                     <Style.Triggers>
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter Property="Background" Value="Transparent"/>
@@ -455,14 +459,19 @@
                                     <Setter Property="BorderThickness" Value="0,0,0,1"/>
                                     <Setter Property="BorderBrush" Value="#F0F0F0"/>
                                     <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                    <Setter Property="Foreground" Value="Black"/>
                                     <Style.Triggers>
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter Property="Background" Value="#E6F3FF"/>
                                             <Setter Property="Foreground" Value="Black"/>
                                         </Trigger>
-                                        <Trigger Property="IsMouseOver" Value="True">
+                                        <MultiTrigger>
+                                            <MultiTrigger.Conditions>
+                                                <Condition Property="IsMouseOver" Value="True"/>
+                                                <Condition Property="Foreground" Value="Black"/>
+                                            </MultiTrigger.Conditions>
                                             <Setter Property="Background" Value="#F5F5F5"/>
-                                        </Trigger>
+                                        </MultiTrigger>
                                     </Style.Triggers>
                                 </Style>
 
@@ -550,11 +559,18 @@
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding booking_type}" FontSize="13"
+                                            <TextBlock FontSize="13"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"
                                                        TextAlignment="Center"
-                                                       TextWrapping="Wrap"/>
+                                                       TextWrapping="Wrap">
+                                                <TextBlock.Text>
+                                                    <MultiBinding Converter="{StaticResource BookingTypeConverter}">
+                                                        <Binding Path="booking_type"/>
+                                                        <Binding Path="room_number"/>
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
@@ -587,10 +603,54 @@
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding out_time, StringFormat=hh\\:mm}" FontSize="13"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       TextAlignment="Center"/>
+                                            <Border>
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                        <Setter Property="CornerRadius" Value="4"/>
+                                                        <Setter Property="Padding" Value="6,4"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger>
+                                                                <DataTrigger.Binding>
+                                                                    <MultiBinding Converter="{StaticResource CriticalRowBackgroundConverter}">
+                                                                        <Binding Path="booking_date"/>
+                                                                        <Binding Path="in_time"/>
+                                                                        <Binding Path="out_time"/>
+                                                                        <Binding Path="status"/>
+                                                                    </MultiBinding>
+                                                                </DataTrigger.Binding>
+                                                                <DataTrigger.Value>True</DataTrigger.Value>
+                                                                <Setter Property="Background" Value="#e82305"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding out_time, StringFormat=hh\\:mm}" FontSize="13"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           TextAlignment="Center"
+                                                           FontWeight="SemiBold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="#333333"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger>
+                                                                    <DataTrigger.Binding>
+                                                                        <MultiBinding Converter="{StaticResource CriticalRowBackgroundConverter}">
+                                                                            <Binding Path="booking_date"/>
+                                                                            <Binding Path="in_time"/>
+                                                                            <Binding Path="out_time"/>
+                                                                            <Binding Path="status"/>
+                                                                        </MultiBinding>
+                                                                    </DataTrigger.Binding>
+                                                                    <DataTrigger.Value>True</DataTrigger.Value>
+                                                                    <Setter Property="Foreground" Value="White"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Border>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
@@ -605,14 +665,12 @@
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Border>
-                                                <TextBlock Text="{Binding status}" FontSize="12"
-                                                           HorizontalAlignment="Center"
-                                                           VerticalAlignment="Center"
-                                                           TextAlignment="Center"
-                                                           Foreground="#333333"
-                                                           FontWeight="SemiBold"/>
-                                            </Border>
+                                            <TextBlock Text="{Binding status}" FontSize="12"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       TextAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#333333"/>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>

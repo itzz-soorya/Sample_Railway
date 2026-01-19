@@ -1,4 +1,6 @@
-﻿using System;
+﻿//ReceiptHelper
+
+using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -172,14 +174,14 @@ namespace UserModule
                 Margin = new Thickness(printerProfile.LeftMargin, 2, printerProfile.RightMargin, 2),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90, GridUnitType.Pixel) });
-            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90, GridUnitType.Pixel) });
+            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            timeDateGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             
             var timeBlock = new TextBlock
             {
                 Text = $"Time {currentInTime.ToString("HH:mm")}",
-                FontSize = 9,
-                FontWeight = FontWeights.SemiBold,
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
                 TextAlignment = TextAlignment.Left,
                 Margin = new Thickness(0, 0, 0, 0)
             };
@@ -188,10 +190,10 @@ namespace UserModule
             var dateBlock = new TextBlock
             {
                 Text = currentInTime.ToString("dd/MM/yyyy"),
-                FontSize = 9,
-                FontWeight = FontWeights.SemiBold,
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
                 TextAlignment = TextAlignment.Right,
-                Margin = new Thickness(0, 0, 0, 0)
+                Margin = new Thickness(0, 0, 20, 0)
             };
             Grid.SetColumn(dateBlock, 1);
             
@@ -260,8 +262,21 @@ namespace UserModule
             AddRow("Persons", persons.ToString());
             AddRow("Total Hours", totalHours.ToString());
             AddRow("Rate / Person", $"₹{ratePerPerson:F0}");
+            
+            // Calculate Out Time: if outTime is provided use it, otherwise calculate from inTime + totalHours
+            string displayOutTime = "Pending";
+            if (outTime.HasValue)
+            {
+                displayOutTime = outTime.Value.ToString(@"hh\:mm");
+            }
+            else if (inTime.HasValue)
+            {
+                var calculatedOutTime = currentInTime.Add(TimeSpan.FromHours(totalHours));
+                displayOutTime = calculatedOutTime.ToString("HH:mm");
+            }
+            AddRow("Out Time", displayOutTime);
+            
             AddRow("Total Amount", $"₹{totalAmount:F0}", isBold: true);
-            AddRow("Out Time", outTime.HasValue ? outTime.Value.ToString(@"HH\:mm") : "N/A", isBold: true);
             
             // Barcode image with dynamic sizing based on printer
             var barcode = new Image
@@ -290,6 +305,17 @@ namespace UserModule
                 });
             }
 
+            // Footer - Powered by AR TECHNOLOGIES (center-aligned)
+            stack.Children.Add(new TextBlock
+            {
+                Text = "Powered by AR TECHNOLOGI",
+                FontSize = 8,
+                FontWeight = FontWeights.SemiBold,
+                TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 5, 0, 2)
+            });
+
             return root;
         }
 
@@ -308,7 +334,7 @@ namespace UserModule
             var printerDetails = OfflineBookingStorage.GetPrinterDetails();
 
             // Debug: Log out_time value
-            Logger.Log($"Printing receipt - Booking ID: {booking.booking_id}, Out Time: {(booking.out_time.HasValue ? booking.out_time.Value.ToString(@"HH\:mm") : "null")} (HasValue: {booking.out_time.HasValue})");
+            Logger.Log($"Printing receipt - Booking ID: {booking.booking_id}, Out Time: {(booking.out_time.HasValue ? booking.out_time.Value.ToString(@"hh\:mm") : "null")} (HasValue: {booking.out_time.HasValue})");
 
             var visual = BuildReceiptVisual(
                 billId: booking.booking_id ?? "N/A",
