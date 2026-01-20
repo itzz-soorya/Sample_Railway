@@ -512,6 +512,24 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
 
+                                <!-- Date -->
+                                <DataGridTemplateColumn Width="1*" MinWidth="100" IsReadOnly="True">
+                                    <DataGridTemplateColumn.Header>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <Image Source="/assests/Time.png" Width="16" Height="16" Margin="0,0,5,0"/>
+                                            <TextBlock Text="Date" FontSize="14" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding booking_date, StringFormat=yyyy-MM-dd}" FontSize="13"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       TextAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
                                 <!-- Name -->
                                 <DataGridTemplateColumn Width="1.5*" MinWidth="150" IsReadOnly="True">
                                     <DataGridTemplateColumn.Header>
