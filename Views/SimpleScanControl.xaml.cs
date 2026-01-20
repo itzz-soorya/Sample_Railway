@@ -421,6 +421,23 @@ namespace UserModule
 
                 bool success = result.Contains("✅");
 
+                // If successful and there's a balance amount, update worker balance
+                if (success)
+                {
+                    decimal workerBalance = totalAmount - paidAmount;
+                    if (workerBalance > 0)
+                    {
+                        string? workerId = LocalStorage.GetItem("workerId");
+                        string? adminId = LocalStorage.GetItem("adminId");
+
+                        if (!string.IsNullOrEmpty(workerId) && !string.IsNullOrEmpty(adminId))
+                        {
+                            await OfflineBookingStorage.UpdateWorkerBalanceAsync(workerId, adminId, workerBalance);
+                            Logger.Log($"Worker balance updated: ₹{workerBalance} for worker {workerId}");
+                        }
+                    }
+                }
+
                 if (success)
                 {
                     BookingConfirmationDialog.Show(

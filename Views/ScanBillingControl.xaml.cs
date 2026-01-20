@@ -183,6 +183,19 @@ namespace UserModule
                     finalBalance,
                     paymentMethod);
                 
+                // If successful and there's a balance amount, update worker balance
+                if (result.Contains("✅") && finalBalance > 0)
+                {
+                    string? workerId = LocalStorage.GetItem("workerId");
+                    string? adminId = LocalStorage.GetItem("adminId");
+
+                    if (!string.IsNullOrEmpty(workerId) && !string.IsNullOrEmpty(adminId))
+                    {
+                        await OfflineBookingStorage.UpdateWorkerBalanceAsync(workerId, adminId, finalBalance);
+                        Logger.Log($"Worker balance updated: ₹{finalBalance} for worker {workerId}");
+                    }
+                }
+                
                 // Show result message
                 string details = $"Bill ID: {currentBooking.booking_id}\n" +
                                 $"Customer: {currentBooking.guest_name}\n" +

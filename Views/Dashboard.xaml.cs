@@ -695,6 +695,13 @@ namespace UserModule
                 // Sync with server
                 string result = await OfflineBookingStorage.SyncCompletedBookingsFromServerAsync(workerId);
 
+                // Sync pending worker balance updates
+                int balancesSynced = await OfflineBookingStorage.SyncWorkerBalancesAsync();
+                if (balancesSynced > 0)
+                {
+                    Logger.Log($"{balancesSynced} worker balance(s) synced to server");
+                }
+
                 // Show result
                 MessageBox.Show(result, "Sync Status", MessageBoxButton.OK, 
                     result.Contains("✅") ? MessageBoxImage.Information : MessageBoxImage.Warning);
