@@ -993,9 +993,10 @@ public static class OfflineBookingStorage
         using var connection = new SqliteConnection($"Data Source={DbPath}");
         await connection.OpenAsync();
 
-        // 🔹 Step 1: Check if booking exists and get in_time
-        string select = "SELECT status, total_amount, IsSynced, in_time FROM Bookings WHERE booking_id = @id";
+        // 🔹 Step 1: Check if booking exists and get in_time and booking_date
+        string select = "SELECT status, total_amount, IsSynced, in_time, booking_date FROM Bookings WHERE booking_id = @id";
         TimeSpan inTime = TimeSpan.Zero;
+        DateTime bookingDate = DateTime.Today;
         
         using (var checkCmd = new SqliteCommand(select, connection))
         {
@@ -1009,6 +1010,12 @@ public static class OfflineBookingStorage
 
             string currentStatus = reader["status"]?.ToString()?.ToLower() ?? "";
             int isSynced = Convert.ToInt32(reader["IsSynced"]);
+            
+            // Parse booking_date
+            if (DateTime.TryParse(reader["booking_date"]?.ToString(), out DateTime parsedDate))
+            {
+                bookingDate = parsedDate;
+            }
             
             // Parse in_time
             if (TimeSpan.TryParse(reader["in_time"]?.ToString(), out TimeSpan parsedInTime))
@@ -1024,18 +1031,25 @@ public static class OfflineBookingStorage
             reader.Close();
 
             // 🔹 Step 2: Calculate actual total hours from in_time to out_time
-            int inMinutes = (int)inTime.TotalMinutes;
-            int outMinutes = (int)outTime.TotalMinutes;
-            int diffMinutes = outMinutes - inMinutes;
-            
-            // Handle next-day checkout
-            if (diffMinutes <= 0)
+            // Build full DateTime from booking_date + in_time
+
+            DateTime inDateTime  = bookingDate.Date + inTime;
+            DateTime outDateTime = bookingDate.Date + outTime;
+
+            // If out time is earlier than in time → reject (invalid selection)
+            if (outDateTime < inDateTime)
             {
-                diffMinutes += 24 * 60; // Add 24 hours
+                return "❌ Out Time cannot be earlier than In Time";
             }
-            
-            // Convert to hours and round up, minimum 1 hour
-            int actualTotalHours = Math.Max(1, (int)Math.Ceiling(diffMinutes / 60.0));
+
+            // Calculate exact duration
+            TimeSpan duration = outDateTime - inDateTime;
+
+            // Total hours (decimal)
+            double totalHoursExact = duration.TotalHours;
+
+            // Round up minimum 1 hour
+            int actualTotalHours = Math.Max(1, (int)Math.Ceiling(totalHoursExact));
             
             decimal balanceAmount = totalAmount - paidAmount;
             string updateQuery;

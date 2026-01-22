@@ -234,7 +234,7 @@
                                      Margin="0,0,0,6"/>
 
                             <TextBox x:Name="TotalAmountTextBox"
-                                     Text="Total Amount: ₹0.00"
+                                     Text="Worker Balance: ₹0.00"
                                      IsReadOnly="True"
                                      Background="#333333"
                                      Foreground="White"

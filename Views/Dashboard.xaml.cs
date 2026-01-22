@@ -4,7 +4,9 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.Linq;
+using System.Net.Http;
 using System.Net.NetworkInformation;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -52,6 +54,9 @@ namespace UserModule
 
                 InitializeBookingTypeCounts();
                 UpdateCountsFromBookings();
+
+                // Fetch worker balance on load
+                _ = FetchWorkerBalanceAsync();
 
                 // Internet status monitoring is handled by Header control
             }
@@ -117,7 +122,7 @@ namespace UserModule
             }
         }
 
-        // Update total bookings count and total amount UI
+        // Update total bookings count and worker balance UI
         private void UpdateTotalsFromBookings()
         {
             try
@@ -125,28 +130,99 @@ namespace UserModule
                 if (TotalBookingsTextBox == null || TotalAmountTextBox == null)
                     return;
 
-                int totalBookings = allBookings?.Count ?? 0;
-                decimal totalAmount = 0m;
+                // Get the last balance reset timestamp
+                string? lastResetStr = LocalStorage.GetItem("lastBalanceResetTime");
+                DateTime? lastResetTime = null;
+                
+                if (!string.IsNullOrEmpty(lastResetStr) && DateTime.TryParse(lastResetStr, out DateTime parsedDate))
+                {
+                    lastResetTime = parsedDate;
+                }
 
+                // Count only bookings after the last reset
+                int totalBookings = 0;
                 if (allBookings != null && allBookings.Any())
                 {
-                    // Sum all booking amounts from the local database
-                    foreach (var b in allBookings)
+                    if (lastResetTime.HasValue)
                     {
-                        try
-                        {
-                            totalAmount += b.total_amount;
-                        }
-                        catch { }
+                        // Count bookings created after the last reset
+                        totalBookings = allBookings.Count(b => b.created_at.HasValue && b.created_at.Value > lastResetTime.Value);
+                    }
+                    else
+                    {
+                        // No reset yet, count all bookings
+                        totalBookings = allBookings.Count;
                     }
                 }
 
                 TotalBookingsTextBox.Text = $"Total Bookings: {totalBookings}";
-                TotalAmountTextBox.Text = $"Total Amount: ₹{totalAmount:F2}";
+                
+                // Worker balance is fetched separately via API
+                // TotalAmountTextBox will be updated by FetchWorkerBalanceAsync()
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex);
+            }
+        }
+
+        // Fetch worker balance from API
+        private async Task FetchWorkerBalanceAsync()
+        {
+            try
+            {
+                if (TotalAmountTextBox == null)
+                    return;
+
+                string? workerId = LocalStorage.GetItem("workerId");
+                string? adminId = LocalStorage.GetItem("adminId");
+
+                if (string.IsNullOrEmpty(workerId) || string.IsNullOrEmpty(adminId))
+                {
+                    TotalAmountTextBox.Text = "Worker Balance: ₹0.00";
+                    return;
+                }
+
+                using var client = new HttpClient();
+                client.Timeout = TimeSpan.FromSeconds(10);
+                
+                string apiUrl = $"https://railway-api-worker.artechnology.pro/api/Settings/worker-balance/{workerId}/{adminId}";
+                var response = await client.GetAsync(apiUrl);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonString = await response.Content.ReadAsStringAsync();
+                    var balanceData = JsonSerializer.Deserialize<JsonElement>(jsonString);
+                    
+                    if (balanceData.TryGetProperty("balance", out JsonElement balanceElement))
+                    {
+                        decimal balance = balanceElement.GetDecimal();
+                        TotalAmountTextBox.Text = $"Worker Balance: ₹{balance:F2}";
+                        
+                        // If balance is 0, reset the booking count by storing current timestamp
+                        if (balance == 0)
+                        {
+                            LocalStorage.SetItem("lastBalanceResetTime", DateTime.Now.ToString("o"));
+                            // Update the booking count display immediately
+                            UpdateTotalsFromBookings();
+                        }
+                    }
+                    else
+                    {
+                        TotalAmountTextBox.Text = "Worker Balance: ₹0.00";
+                        LocalStorage.SetItem("lastBalanceResetTime", DateTime.Now.ToString("o"));
+                        UpdateTotalsFromBookings();
+                    }
+                }
+                else
+                {
+                    TotalAmountTextBox.Text = "Worker Balance: ₹0.00";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                TotalAmountTextBox.Text = "Worker Balance: ₹0.00";
             }
         }
 
@@ -711,6 +787,7 @@ namespace UserModule
                 {
                     LoadBookings();
                     UpdateCountsFromBookings();
+                    await FetchWorkerBalanceAsync();
                 }
             }
             catch (Exception ex)
