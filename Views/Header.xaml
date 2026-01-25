@@ -103,6 +103,12 @@
                             <TextBlock Text="Close Booking" VerticalAlignment="Center" FontSize="15"/>
                         </StackPanel>
                     </Button>
+                    <Button x:Name="ReportButton" Style="{StaticResource HeaderButtonStyle}" MinWidth="100" Click="Report_Click">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="📊" FontSize="20" Margin="0,0,6,0"/>
+                            <TextBlock Text="Report" VerticalAlignment="Center" FontSize="15"/>
+                        </StackPanel>
+                    </Button>
                     <Button x:Name="SubmitBookingButton" Content="Submit Booking" Style="{StaticResource HeaderButtonStyle}" MinWidth="150" Click="Submit_Click" Background="#555555" Visibility="Collapsed"  />
                 </StackPanel>
 
