@@ -642,7 +642,7 @@ namespace UserModule
         }
     }
 
-    // Converter for payment display (amount with C/O indicator)
+    // Converter for payment display (amount with (c)/(u) indicator)
     public class PaymentDisplayConverter : IMultiValueConverter
     {
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
@@ -652,20 +652,28 @@ namespace UserModule
                 try
                 {
                     decimal amount = System.Convert.ToDecimal(values[0]);
-                    string paymentMethod = values[1]?.ToString() ?? "";
+                    string paymentMethod = values[1]?.ToString()?.Trim() ?? "";
                     
                     if (amount == 0)
                         return "0";
                     
-                    string indicator = "";
-                    if (paymentMethod.Equals("Cash", StringComparison.OrdinalIgnoreCase))
-                        indicator = "(C)";
-                    else if (paymentMethod.Equals("Online", StringComparison.OrdinalIgnoreCase) ||
-                             paymentMethod.Equals("UPI", StringComparison.OrdinalIgnoreCase) ||
-                             paymentMethod.Equals("Card", StringComparison.OrdinalIgnoreCase))
-                        indicator = "(O)";
+                    string indicator = "(c)";  // Default to cash
                     
-                    return $"{amount:N0}{indicator}";
+                    if (!string.IsNullOrWhiteSpace(paymentMethod))
+                    {
+                        if (paymentMethod.Equals("Cash", StringComparison.OrdinalIgnoreCase))
+                            indicator = "(c)";
+                        else if (paymentMethod.Equals("Online", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("UPI", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("Card", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("GPay", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("PhonePe", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("Google Pay", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("Net Banking", StringComparison.OrdinalIgnoreCase))
+                            indicator = "(u)";
+                    }
+                    
+                    return $"{amount:N0} {indicator}";
                 }
                 catch
                 {

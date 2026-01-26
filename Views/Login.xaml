@@ -97,30 +97,7 @@
                                Margin="0,15,0,0"/>
                 </StackPanel>
 
-                <!-- Bottom Policy Section -->
-                <StackPanel Grid.Row="1" 
-                            VerticalAlignment="Bottom" 
-                            HorizontalAlignment="Center"
-                            Orientation="Horizontal"
-                            Margin="0,0,0,30">
-                    <TextBlock Text="Private Policy"
-                               Foreground="#8B92A6" 
-                               FontSize="13" 
-                               FontWeight="Medium"
-                               Cursor="Hand"
-                               Margin="0,0,30,0"/>
-                    <TextBlock Text="Terms of Use"
-                               Foreground="#8B92A6" 
-                               FontSize="13" 
-                               FontWeight="Medium"
-                               Cursor="Hand"
-                               Margin="0,0,30,0"/>
-                    <TextBlock Text="AR Technologies"
-                               Foreground="#8B92A6" 
-                               FontSize="13" 
-                               FontWeight="Medium"
-                               Cursor="Hand"/>
-                </StackPanel>
+               
             </Grid>
         </Border>
 
