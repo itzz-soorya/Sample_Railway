@@ -111,12 +111,9 @@
                     <TextBlock Text="💳 Payment Method" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8"/>
                     <ComboBox x:Name="cmbPaymentMethod" Height="45" Padding="10" FontSize="15" 
                               SelectionChanged="cmbPaymentMethod_SelectionChanged">
-                        <ComboBoxItem Content="Select Payment Method" IsSelected="True" IsEnabled="False"/>
-                        <ComboBoxItem Content="Cash"/>
-                        <ComboBoxItem Content="Card"/>
+                        <ComboBoxItem Content="Select Payment Method" IsEnabled="False"/>
+                        <ComboBoxItem Content="Cash" IsSelected="True"/>
                         <ComboBoxItem Content="UPI"/>
-                        <ComboBoxItem Content="Net Banking"/>
-                        <ComboBoxItem Content="Others"/>
                     </ComboBox>
                     <TextBlock x:Name="errPaymentMethod" Text="* Please select a payment method" 
                                Foreground="Red" FontSize="12" Visibility="Collapsed" Margin="5,5,0,0"/>

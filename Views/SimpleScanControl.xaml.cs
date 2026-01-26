@@ -77,7 +77,7 @@ namespace UserModule
                     txtBalanceAmount.Text = "₹0";
 
                 if (cmbPaymentMethod != null)
-                    cmbPaymentMethod.SelectedIndex = 0;
+                    cmbPaymentMethod.SelectedIndex = 1; // Set to Cash (default)
 
                 if (errPaymentMethod != null)
                     errPaymentMethod.Visibility = Visibility.Collapsed;
@@ -261,8 +261,17 @@ namespace UserModule
                 // Set current out time dynamically (this will update as time passes)
                 txtOutTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
+                // Set Cash as default payment method (index 1)
+                cmbPaymentMethod.SelectedIndex = 1;
+                
+                // Explicitly enable the Complete Payment button since Cash is selected
+                btnCompletePayment.IsEnabled = true;
+
                 // Show payment section
                 PaymentSection.Visibility = Visibility.Visible;
+                
+                // Set focus to Complete Payment button so user can press Enter
+                Dispatcher.InvokeAsync(() => btnCompletePayment.Focus(), System.Windows.Threading.DispatcherPriority.Input);
             }
             catch (Exception ex)
             {
@@ -284,7 +293,7 @@ namespace UserModule
                 if (cmbPaymentMethod == null || btnCompletePayment == null || errPaymentMethod == null)
                     return;
 
-                // Only check if payment method is selected
+                // Check if a valid payment method is selected (not the placeholder at index 0)
                 bool isValid = cmbPaymentMethod.SelectedIndex > 0 && cmbPaymentMethod.Items.Count > 0;
 
                 // Enable/disable complete button

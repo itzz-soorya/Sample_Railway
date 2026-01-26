@@ -224,10 +224,9 @@
                             <ComboBox x:Name="cmbPaymentMethod" 
                                       Style="{StaticResource RoundedComboBoxStyle}"
                                       SelectionChanged="cmbPaymentMethod_SelectionChanged">
-                                <ComboBoxItem Content="Select Method" IsSelected="True" IsEnabled="False"/>
-                                <ComboBoxItem Content="Cash"/>
-                                <ComboBoxItem Content="GPay"/>
-                                <ComboBoxItem Content="Card"/>
+                                <ComboBoxItem Content="Select Method" IsEnabled="False"/>
+                                <ComboBoxItem Content="Cash" IsSelected="True"/>
+                                <ComboBoxItem Content="UPI"/>
                             </ComboBox>
                             <TextBlock x:Name="errPaymentMethod" 
                                        Text="* Select Payment Method" 

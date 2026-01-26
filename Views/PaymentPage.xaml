@@ -97,7 +97,7 @@
                                     </Setter>
                                 </Style>
                             </ComboBox.Style>
-                            <ComboBoxItem Content="Selected" IsSelected="True">
+                            <ComboBoxItem Content="Selected">
 
                                 <ComboBoxItem.Style>
                                     <Style TargetType="ComboBoxItem">
@@ -114,7 +114,7 @@
                                     </Style>
                                 </ComboBoxItem.Style>
                             </ComboBoxItem>
-                            <ComboBoxItem Content="Card">
+                            <ComboBoxItem Content="Cash" IsSelected="True">
                                 <ComboBoxItem.Style>
                                     <Style TargetType="ComboBoxItem">
                                         <Setter Property="Background" Value="White"/>
