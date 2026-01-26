@@ -111,6 +111,74 @@ namespace UserModule
         private async void NewBooking_Loaded(object sender, RoutedEventArgs e)
         {
             await LoadSeatingTypesAsync();
+            
+            // Set default values after seating types are loaded
+            await Dispatcher.InvokeAsync(() => SetDefaultValues(), System.Windows.Threading.DispatcherPriority.Loaded);
+            
+            // Set focus to First Name field after defaults are set
+            await Dispatcher.InvokeAsync(() => 
+            {
+                txtFirstName.Focus();
+            }, System.Windows.Threading.DispatcherPriority.Input);
+        }
+
+        /// <summary>
+        /// Set default values for Number of Persons, Total Hours, and ID Type
+        /// </summary>
+        private void SetDefaultValues()
+        {
+            try
+            {
+                // 1. Set Number of Persons = 1
+                txtPersons.Text = "1";
+                SetForegroundColor(txtPersons, false); // Black text, not placeholder
+
+                // 2. Total Hours is now handled automatically by ConfigureSeatingOptions
+                // when seatingTypes is 0 or 1, so we don't need to set it here
+                
+                // 3. Set ID Type = PNR Number
+                if (cmbIdType.Items.Count > 0)
+                {
+                    // Find "PNR Number" in the ComboBox
+                    for (int i = 0; i < cmbIdType.Items.Count; i++)
+                    {
+                        var item = cmbIdType.Items[i] as ComboBoxItem;
+                        if (item != null && item.Content?.ToString() == "PNR Number")
+                        {
+                            cmbIdType.SelectedIndex = i;
+
+                            // Configure the ID Number field for PNR Number
+                            txtIdNumber.MaxLength = 10;
+                            txtIdNumber.Text = "";
+                            lblIdInput.Text = "Enter PNR Number (10 digits)";
+
+                            // Attach numeric-only input handler
+                            txtIdNumber.PreviewTextInput -= NumbersOnly_PreviewTextInput;
+                            txtIdNumber.PreviewTextInput += NumbersOnly_PreviewTextInput;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error setting default values: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Set foreground color for TextBox (black for value, gray for placeholder)
+        /// </summary>
+        private void SetForegroundColor(TextBox textBox, bool isPlaceholder)
+        {
+            if (isPlaceholder)
+            {
+                textBox.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#999"));
+            }
+            else
+            {
+                textBox.Foreground = new SolidColorBrush(Colors.Black);
+            }
         }
 
         /// <summary>
@@ -229,6 +297,21 @@ namespace UserModule
                 txtSeats.SelectedIndex = 1; // Select the first (and only) non-placeholder item
                 txtSeats.IsEnabled = false; // Disable ComboBox since there's no choice
                 errSeats.Visibility = Visibility.Collapsed; // Hide error message
+
+                // Wait for hours ComboBox to populate, then select first hour option
+                Dispatcher.BeginInvoke(new Action(async () =>
+                {
+                    // Wait a moment for the hours ComboBox to populate based on seat type selection
+                    await Task.Delay(100);
+                    
+                    // Now select the first non-placeholder hour option
+                    if (txtHours.Items.Count > 1)
+                    {
+                        // Select index 1 (first non-placeholder item)
+                        // This will be "1 hr" for Sitting or "1-3 hrs" for Sleeper
+                        txtHours.SelectedIndex = 1;
+                    }
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
             else
             {
@@ -1140,18 +1223,36 @@ namespace UserModule
                 return;
             }
 
+            // Check if seat type is placeholder or not selected
             var selectedSeatItem = txtSeats.SelectedItem as ComboBoxItem;
-            string seatType = selectedSeatItem?.Content?.ToString()?.ToLower() ?? "";
-            string hoursText = (txtHours.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
-
-            if (string.IsNullOrEmpty(seatType) || string.IsNullOrEmpty(hoursText))
+            if (txtSeats.SelectedIndex <= 0 || selectedSeatItem == null || selectedSeatItem.Name == "seatsPlaceholder")
             {
                 txtRate.Text = "0";
                 txtTotalAmount.Text = "0";
                 return;
             }
 
+            string seatType = selectedSeatItem?.Content?.ToString()?.ToLower() ?? "";
+            
+            // Additional check for "select" text in seat type
+            if (string.IsNullOrEmpty(seatType) || seatType.Contains("select"))
+            {
+                txtRate.Text = "0";
+                txtTotalAmount.Text = "0";
+                return;
+            }
+
+            // Check if hours is placeholder or not selected
             var selectedHourItem = txtHours.SelectedItem as ComboBoxItem;
+            string hoursText = selectedHourItem?.Content?.ToString() ?? "";
+            
+            if (selectedHourItem == null || selectedHourItem.Name == "hoursPlaceholder" || string.IsNullOrEmpty(hoursText) || hoursText.Contains("Select"))
+            {
+                txtRate.Text = "0";
+                txtTotalAmount.Text = "0";
+                return;
+            }
+
             decimal pricePerPerson = 0;
 
             // Check if this is a pricing tier (Sleeper with stored amount in Tag)
@@ -1175,11 +1276,23 @@ namespace UserModule
                 // Get base rate from database
                 decimal rate = OfflineBookingStorage.GetBookingTypeAmount(seatType);
 
-                // If no rate found, show error
+                // If no rate found, show error with debugging info
                 if (rate <= 0)
                 {
-                    MessageBox.Show($"Could not find rate for '{seatType}'.\nPlease refresh booking types.",
-                        "Rate Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    var availableTypes = OfflineBookingStorage.GetBookingTypes();
+                    string availableTypesStr = string.Join(", ", availableTypes.Select(t => $"{t.Type}=₹{t.Amount}"));
+                    
+                    string errorMsg = $"Could not find rate for '{seatType}'.\n\n";
+                    if (availableTypes.Count == 0)
+                    {
+                        errorMsg += "No booking types found in database.\nPlease go to Dashboard to sync data from server.";
+                    }
+                    else
+                    {
+                        errorMsg += $"Available types: {availableTypesStr}\n\nPlease refresh booking types or check your seat type selection.";
+                    }
+                    
+                    MessageBox.Show(errorMsg, "Rate Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
                     txtRate.Text = "0";
                     txtTotalAmount.Text = "0";
                     return;
@@ -1569,7 +1682,7 @@ namespace UserModule
                 string seatType = ((txtSeats.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "").Trim();
                 string proofType = ((cmbIdType.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "").ToLower().Trim();
                 string proofId = txtIdNumber.Text.Trim();
-                string paymentMethod = "cash";
+                string paymentMethod = rbCash.IsChecked == true ? "cash" : "upi";
 
                 int totalHours = 0;
                 var selectedHours = (txtHours.SelectedItem as ComboBoxItem)?.Content?.ToString();
@@ -1797,6 +1910,9 @@ namespace UserModule
 
             // Generate a fresh new Bill ID
             GenerateBillIDFromPhone();
+
+            // Restore default values after clearing
+            Dispatcher.BeginInvoke(new Action(() => SetDefaultValues()), System.Windows.Threading.DispatcherPriority.Loaded);
 
             // Optionally, move focus to the first field
             txtFirstName.Focus();
