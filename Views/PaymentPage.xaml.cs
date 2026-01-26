@@ -36,19 +36,73 @@ namespace UserModule
             TotalPaymentText.Text = $"₹{total:F2}";
         }
 
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        private async void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             // 1️⃣ Update Submit form fields
             _submitForm.txtStatus.Text = "Completed";
             _submitForm.txtOutTime.Text = DateTime.Now.ToShortTimeString();
 
-            // 2️⃣ Update Booking object
-            var booking = Booking.GetBookingById(_submitForm.txtBookingId.Text);
+            // 2️⃣ Get booking from offline storage to get actual balance
+            string bookingId = _submitForm.txtBookingId.Text;
+            Logger.Log($"=== CLOSING BOOKING: {bookingId} ===");
+            
+            var booking1 = OfflineBookingStorage.GetBookingById(bookingId);
+            decimal actualBalanceAmount = 0;
+            
+            if (booking1 != null)
+            {
+                actualBalanceAmount = booking1.balance_amount;
+                Logger.Log($"Booking found in DB - Balance: ₹{actualBalanceAmount}, Worker: {booking1.worker_id}");
+            }
+            else
+            {
+                Logger.Log($"ERROR: Booking {bookingId} not found in database!");
+            }
+
+            // Also update old Booking object for compatibility
+            var booking = Booking.GetBookingById(bookingId);
             if (booking != null)
             {
                 booking.Status = "Completed";
                 booking.EndTime = DateTime.Now;
             }
+
+            // 2.5️⃣ Handle extra charges (balance amount) for worker
+            if (actualBalanceAmount > 0)
+            {
+                // Get current worker and admin IDs
+                string? workerId = LocalStorage.GetItem("workerId");
+                string? adminId = LocalStorage.GetItem("adminId");
+
+                Logger.Log($"Current Worker ID: {workerId}, Admin ID: {adminId}, Balance to add: ₹{actualBalanceAmount}");
+
+                if (!string.IsNullOrEmpty(workerId) && !string.IsNullOrEmpty(adminId))
+                {
+                    Logger.Log($"Calling UpdateWorkerBalanceAsync...");
+                    
+                    // Update worker balance (online/offline)
+                    bool updated = await OfflineBookingStorage.UpdateWorkerBalanceAsync(workerId, adminId, actualBalanceAmount);
+                    
+                    if (!updated)
+                    {
+                        Logger.Log($"✓ Balance amount ₹{actualBalanceAmount} saved OFFLINE for worker {workerId}");
+                    }
+                    else
+                    {
+                        Logger.Log($"✓ Balance amount ₹{actualBalanceAmount} updated ONLINE for worker {workerId}");
+                    }
+                }
+                else
+                {
+                    Logger.Log($"ERROR: Worker ID or Admin ID is empty - cannot save balance");
+                }
+            }
+            else
+            {
+                Logger.Log($"No balance amount to save (balance is {actualBalanceAmount})");
+            }
+
+            Logger.Log($"=== END CLOSING BOOKING ===\n");
 
             // 3️⃣ Remove blur and PaymentPage overlay
             _submitForm.SubmitGrid.Effect = null;

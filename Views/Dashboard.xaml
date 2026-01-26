@@ -234,7 +234,7 @@
                                      Margin="0,0,0,6"/>
 
                             <TextBox x:Name="TotalAmountTextBox"
-                                     Text="Total Amount: ₹0.00"
+                                     Text="Worker Balance: ₹0.00"
                                      IsReadOnly="True"
                                      Background="#333333"
                                      Foreground="White"
@@ -362,7 +362,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button x:Name="btnCompletedFilter" Content="Completed" 
+                            <Button x:Name="btnSittingFilter" Content="Sitting" 
                                     Width="90" Height="32" 
                                     Background="#E0E0E0" 
                                     Foreground="#333333"
@@ -370,7 +370,7 @@
                                     FontSize="13"
                                     FontWeight="SemiBold"
                                     Cursor="Hand"
-                                    Click="FilterCompleted_Click">
+                                    Click="FilterSitting_Click">
                                 <Button.Style>
                                     <Style TargetType="Button">
                                         <Setter Property="Template">
@@ -404,11 +404,18 @@
                                     <TextBlock x:Name="ActiveTextBlock" Text="Active: 0" Foreground="#4CAF50" FontSize="12" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </Border>
-                            <!-- Completed Count -->
-                            <Border Background="#FFF3E0" Padding="6,4" CornerRadius="16" Margin="0,0,6,0">
+                            <!-- Sitting Count -->
+                            <Border Background="#E3F2FD" Padding="6,4" CornerRadius="16" Margin="0,0,6,0">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="✓" Foreground="#FF9800" FontWeight="Bold" FontSize="12" Margin="0,0,4,0"/>
-                                    <TextBlock x:Name="CompletedTextBlock" Text="Completed: 0" Foreground="#FF9800" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="💺" Foreground="#2196F3" FontWeight="Bold" FontSize="12" Margin="0,0,4,0"/>
+                                    <TextBlock x:Name="SittingTextBlock" Text="Sitting: 0" Foreground="#2196F3" FontSize="12" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Border>
+                            <!-- Sleeper Count -->
+                            <Border Background="#F3E5F5" Padding="6,4" CornerRadius="16" Margin="0,0,6,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🛏️" Foreground="#9C27B0" FontWeight="Bold" FontSize="12" Margin="0,0,4,0"/>
+                                    <TextBlock x:Name="SleeperTextBlock" Text="Sleeper: 0" Foreground="#9C27B0" FontSize="12" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -508,6 +515,24 @@
                                                        TextAlignment="Center" 
                                                        TextWrapping="Wrap"
                                                        ToolTip="{Binding booking_id}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <!-- Date -->
+                                <DataGridTemplateColumn Width="1*" MinWidth="100" IsReadOnly="True">
+                                    <DataGridTemplateColumn.Header>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <Image Source="/assests/Time.png" Width="16" Height="16" Margin="0,0,5,0"/>
+                                            <TextBlock Text="Date" FontSize="14" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding booking_date, StringFormat=yyyy-MM-dd}" FontSize="13"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       TextAlignment="Center"/>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>

@@ -122,6 +122,22 @@ public static class OfflineBookingStorage
         {
             cmd.ExecuteNonQuery();
         }
+
+        // Create worker_balance table for tracking worker balance updates
+        string createWorkerBalanceTable = @"
+        CREATE TABLE IF NOT EXISTS worker_balance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_id TEXT,
+            worker_id TEXT,
+            balance_amount REAL,
+            is_synced INTEGER DEFAULT 0,
+            created_at TEXT
+        );";
+
+        using (var cmd = new SqliteCommand(createWorkerBalanceTable, connection))
+        {
+            cmd.ExecuteNonQuery();
+        }
     }
 
     // Online Sync
@@ -977,9 +993,10 @@ public static class OfflineBookingStorage
         using var connection = new SqliteConnection($"Data Source={DbPath}");
         await connection.OpenAsync();
 
-        // 🔹 Step 1: Check if booking exists and get in_time
-        string select = "SELECT status, total_amount, IsSynced, in_time FROM Bookings WHERE booking_id = @id";
+        // 🔹 Step 1: Check if booking exists and get in_time and booking_date
+        string select = "SELECT status, total_amount, IsSynced, in_time, booking_date FROM Bookings WHERE booking_id = @id";
         TimeSpan inTime = TimeSpan.Zero;
+        DateTime bookingDate = DateTime.Today;
         
         using (var checkCmd = new SqliteCommand(select, connection))
         {
@@ -993,6 +1010,12 @@ public static class OfflineBookingStorage
 
             string currentStatus = reader["status"]?.ToString()?.ToLower() ?? "";
             int isSynced = Convert.ToInt32(reader["IsSynced"]);
+            
+            // Parse booking_date
+            if (DateTime.TryParse(reader["booking_date"]?.ToString(), out DateTime parsedDate))
+            {
+                bookingDate = parsedDate;
+            }
             
             // Parse in_time
             if (TimeSpan.TryParse(reader["in_time"]?.ToString(), out TimeSpan parsedInTime))
@@ -1008,18 +1031,25 @@ public static class OfflineBookingStorage
             reader.Close();
 
             // 🔹 Step 2: Calculate actual total hours from in_time to out_time
-            int inMinutes = (int)inTime.TotalMinutes;
-            int outMinutes = (int)outTime.TotalMinutes;
-            int diffMinutes = outMinutes - inMinutes;
-            
-            // Handle next-day checkout
-            if (diffMinutes <= 0)
+            // Build full DateTime from booking_date + in_time
+
+            DateTime inDateTime  = bookingDate.Date + inTime;
+            DateTime outDateTime = bookingDate.Date + outTime;
+
+            // If out time is earlier than in time → reject (invalid selection)
+            if (outDateTime < inDateTime)
             {
-                diffMinutes += 24 * 60; // Add 24 hours
+                return "❌ Out Time cannot be earlier than In Time";
             }
-            
-            // Convert to hours and round up, minimum 1 hour
-            int actualTotalHours = Math.Max(1, (int)Math.Ceiling(diffMinutes / 60.0));
+
+            // Calculate exact duration
+            TimeSpan duration = outDateTime - inDateTime;
+
+            // Total hours (decimal)
+            double totalHoursExact = duration.TotalHours;
+
+            // Round up minimum 1 hour
+            int actualTotalHours = Math.Max(1, (int)Math.Ceiling(totalHoursExact));
             
             decimal balanceAmount = totalAmount - paidAmount;
             string updateQuery;
@@ -1930,4 +1960,288 @@ public static class OfflineBookingStorage
             Logger.LogError(ex);
         }
     }
+
+    // ===== Worker Balance Update Methods =====
+
+    /// <summary>
+    /// Update worker balance - online first, offline fallback
+    /// </summary>
+    public static async Task<bool> UpdateWorkerBalanceAsync(string workerId, string adminId, decimal balanceAmount)
+    {
+        // Check if network is available
+        bool isOnline = NetworkInterface.GetIsNetworkAvailable();
+
+        if (isOnline)
+        {
+            try
+            {
+                // Try to send directly to API
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+
+                var balanceData = new
+                {
+                    worker_id = workerId,
+                    admin_id = adminId,
+                    amount = balanceAmount
+                };
+
+                var json = JsonConvert.SerializeObject(balanceData);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await client.PutAsync("https://railway-api-worker.artechnology.pro/api/Booking/update-worker-balance", content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    Logger.Log($"Worker balance updated online: Worker={workerId}, Amount={balanceAmount}");
+                    return true;
+                }
+                else
+                {
+                    // API rejected, save offline
+                    string responseBody = await response.Content.ReadAsStringAsync();
+                    Logger.Log($"API rejected balance update: {response.StatusCode} - {responseBody}");
+                    SaveWorkerBalanceOffline(workerId, adminId, balanceAmount);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Network error, save offline
+                Logger.Log($"Error updating balance online: {ex.Message}");
+                SaveWorkerBalanceOffline(workerId, adminId, balanceAmount);
+                return false;
+            }
+        }
+        else
+        {
+            // No network, save offline
+            SaveWorkerBalanceOffline(workerId, adminId, balanceAmount);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Save worker balance update to local database (offline)
+    /// </summary>
+    private static void SaveWorkerBalanceOffline(string workerId, string adminId, decimal balanceAmount)
+    {
+        try
+        {
+            Logger.Log($"SaveWorkerBalanceOffline called: Worker={workerId}, Admin={adminId}, Amount={balanceAmount}");
+            Logger.Log($"Database path: {DbPath}");
+            
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+            Logger.Log("Database connection opened successfully");
+
+            // Check if record exists for this worker and admin
+            string selectQuery = "SELECT balance_amount, is_synced FROM worker_balance WHERE worker_id = @worker_id AND admin_id = @admin_id";
+            
+            using (var selectCmd = new SqliteCommand(selectQuery, connection))
+            {
+                selectCmd.Parameters.AddWithValue("@worker_id", workerId);
+                selectCmd.Parameters.AddWithValue("@admin_id", adminId);
+                
+                using var reader = selectCmd.ExecuteReader();
+                
+                if (reader.Read())
+                {
+                    // Record exists
+                    decimal currentBalance = Convert.ToDecimal(reader["balance_amount"]);
+                    int isSynced = Convert.ToInt32(reader["is_synced"]);
+                    Logger.Log($"Found existing record: Current Balance={currentBalance}, IsSynced={isSynced}");
+                    reader.Close();
+
+                    decimal newBalance;
+                    if (isSynced == 0)
+                    {
+                        // Not synced yet, add to existing balance
+                        newBalance = currentBalance + balanceAmount;
+                        Logger.Log($"Worker balance updated offline (adding): Worker={workerId}, Old={currentBalance}, New={newBalance}");
+                    }
+                    else
+                    {
+                        // Was synced, reset and add new balance
+                        newBalance = balanceAmount;
+                        Logger.Log($"Worker balance updated offline (reset from synced): Worker={workerId}, Amount={newBalance}");
+                    }
+
+                    // Update existing record
+                    string updateQuery = @"
+                        UPDATE worker_balance 
+                        SET balance_amount = @balance_amount, 
+                            is_synced = 0, 
+                            created_at = @created_at 
+                        WHERE worker_id = @worker_id AND admin_id = @admin_id";
+
+                    using var updateCmd = new SqliteCommand(updateQuery, connection);
+                    updateCmd.Parameters.AddWithValue("@balance_amount", newBalance);
+                    updateCmd.Parameters.AddWithValue("@created_at", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                    updateCmd.Parameters.AddWithValue("@worker_id", workerId);
+                    updateCmd.Parameters.AddWithValue("@admin_id", adminId);
+                    int rowsUpdated = updateCmd.ExecuteNonQuery();
+                    Logger.Log($"Updated {rowsUpdated} row(s) with new balance: {newBalance}");
+                }
+                else
+                {
+                    // Record doesn't exist, insert new one
+                    reader.Close();
+                    
+                    string insertQuery = @"
+                        INSERT INTO worker_balance (admin_id, worker_id, balance_amount, is_synced, created_at)
+                        VALUES (@admin_id, @worker_id, @balance_amount, 0, @created_at)";
+
+                    using var insertCmd = new SqliteCommand(insertQuery, connection);
+                    insertCmd.Parameters.AddWithValue("@admin_id", adminId);
+                    insertCmd.Parameters.AddWithValue("@worker_id", workerId);
+                    insertCmd.Parameters.AddWithValue("@balance_amount", balanceAmount);
+                    insertCmd.Parameters.AddWithValue("@created_at", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                    int rowsInserted = insertCmd.ExecuteNonQuery();
+                    Logger.Log($"Inserted {rowsInserted} new row(s)");
+                    Logger.Log($"Worker balance saved offline (new record): Worker={workerId}, Amount={balanceAmount}");
+                }
+            }
+            
+            Logger.Log("SaveWorkerBalanceOffline completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"EXCEPTION in SaveWorkerBalanceOffline: {ex.Message}");
+            Logger.LogError(ex);
+        }
+    }
+
+    /// <summary>
+    /// Sync pending worker balance updates to server
+    /// </summary>
+    public static async Task<int> SyncWorkerBalancesAsync()
+    {
+        int successCount = 0;
+
+        try
+        {
+            // Get all unsynced balance updates
+            var pendingBalances = GetPendingWorkerBalances();
+
+            if (pendingBalances.Count == 0)
+            {
+                Logger.Log("No pending worker balance updates to sync");
+                return 0;
+            }
+
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+
+            foreach (var balance in pendingBalances)
+            {
+                try
+                {
+                    var balanceData = new
+                    {
+                        worker_id = balance.WorkerId,
+                        admin_id = balance.AdminId,
+                        amount = balance.BalanceAmount
+                    };
+
+                    var json = JsonConvert.SerializeObject(balanceData);
+                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                    var response = await client.PutAsync("https://railway-api-worker.artechnology.pro/api/Booking/update-worker-balance", content);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        // Mark as synced
+                        MarkWorkerBalanceAsSynced(balance.Id);
+                        successCount++;
+                        Logger.Log($"Synced worker balance: ID={balance.Id}, Worker={balance.WorkerId}, Amount={balance.BalanceAmount}");
+                    }
+                    else
+                    {
+                        Logger.Log($"Failed to sync worker balance ID={balance.Id}: {response.StatusCode}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Error syncing worker balance ID={balance.Id}: {ex.Message}");
+                }
+            }
+
+            Logger.Log($"Worker balance sync completed: {successCount}/{pendingBalances.Count} successful");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+        }
+
+        return successCount;
+    }
+
+    /// <summary>
+    /// Get all pending (unsynced) worker balance updates
+    /// </summary>
+    private static List<WorkerBalanceRecord> GetPendingWorkerBalances()
+    {
+        var balances = new List<WorkerBalanceRecord>();
+
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+
+            string query = "SELECT id, admin_id, worker_id, balance_amount, created_at FROM worker_balance WHERE is_synced = 0";
+
+            using var cmd = new SqliteCommand(query, connection);
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                balances.Add(new WorkerBalanceRecord
+                {
+                    Id = Convert.ToInt32(reader["id"]),
+                    AdminId = reader["admin_id"]?.ToString() ?? "",
+                    WorkerId = reader["worker_id"]?.ToString() ?? "",
+                    BalanceAmount = Convert.ToDecimal(reader["balance_amount"]),
+                    CreatedAt = reader["created_at"]?.ToString() ?? ""
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+        }
+
+        return balances;
+    }
+
+    /// <summary>
+    /// Mark a worker balance record as synced
+    /// </summary>
+    private static void MarkWorkerBalanceAsSynced(int id)
+    {
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+
+            string update = "UPDATE worker_balance SET is_synced = 1 WHERE id = @id";
+
+            using var cmd = new SqliteCommand(update, connection);
+            cmd.Parameters.AddWithValue("@id", id);
+
+            cmd.ExecuteNonQuery();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+        }
+    }
+}
+
+// Worker Balance Record Model
+public class WorkerBalanceRecord
+{
+    public int Id { get; set; }
+    public string AdminId { get; set; } = string.Empty;
+    public string WorkerId { get; set; } = string.Empty;
+    public decimal BalanceAmount { get; set; }
+    public string CreatedAt { get; set; } = string.Empty;
 }

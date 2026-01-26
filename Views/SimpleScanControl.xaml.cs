@@ -70,8 +70,8 @@ namespace UserModule
                     PaymentSection.Visibility = Visibility.Collapsed;
 
                 // Reset payment form fields
-                if (txtPaidAmount != null)
-                    txtPaidAmount.Text = "₹0";
+                if (lblPaidAmount != null)
+                    lblPaidAmount.Text = "₹0";
 
                 if (txtBalanceAmount != null)
                     txtBalanceAmount.Text = "₹0";
@@ -146,7 +146,7 @@ namespace UserModule
             catch (Exception ex)
             {
                 Logger.LogError(ex);
-                // MessageBox.Show($"Error processing booking: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error processing booking: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -180,6 +180,7 @@ namespace UserModule
                 lblCustomerName.Text = booking.guest_name ?? "N/A";
                 lblCustomerPhone.Text = $"Phone: {booking.phone_number ?? "N/A"}";
                 lblSeatType.Text = $"Booking ID: {booking.booking_id} | Type: {booking.booking_type}";
+                lblInTimeDisplay.Text = $"In Time: {booking.in_time.ToString(@"hh\:mm\:ss")}";
 
                 // Get current time as out_time
                 DateTime currentTime = DateTime.Now;
@@ -254,7 +255,7 @@ namespace UserModule
                 lblOriginalAmount.Text = $"₹{baseAmount:F2}";
                 lblExtraCharges.Text = $"₹{extraCharges:F2}";
                 lblTotalAmount.Text = $"₹{actualTotalAmount:F2}";
-                txtPaidAmount.Text = paidAmount.ToString("F2");
+                lblPaidAmount.Text = $"₹{paidAmount:F2}";
                 txtBalanceAmount.Text = balanceAmount.ToString("F2");
 
                 // Set current out time dynamically (this will update as time passes)
@@ -266,37 +267,13 @@ namespace UserModule
             catch (Exception ex)
             {
                 Logger.LogError(ex);
-                // MessageBox.Show($"Error displaying payment section: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error displaying payment section: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private void cmbPaymentMethod_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ValidatePaymentForm();
-        }
-
-        private void txtPaidAmount_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            try
-            {
-                // Get total amount from label
-                if (lblTotalAmount != null && txtPaidAmount != null && txtBalanceAmount != null)
-                {
-                    string totalText = lblTotalAmount.Text.Replace("₹", "").Trim();
-                    string paidText = txtPaidAmount.Text.Trim();
-                    
-                    if (decimal.TryParse(totalText, out decimal totalAmount) && 
-                        decimal.TryParse(paidText, out decimal paidAmount))
-                    {
-                        decimal balance = totalAmount - paidAmount;
-                        txtBalanceAmount.Text = balance.ToString("F2");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex);
-            }
         }
 
         private void ValidatePaymentForm()
@@ -346,7 +323,7 @@ namespace UserModule
                     TimeSpan checkoutTime = checkoutDateTime.TimeOfDay;
                     
                     decimal checkoutTotalAmount = decimal.Parse(lblTotalAmount.Text.Replace("₹", ""));
-                    decimal checkoutPaidAmount = decimal.Parse(txtPaidAmount.Text);
+                    decimal checkoutPaidAmount = decimal.Parse(lblPaidAmount.Text.Replace("₹", ""));
                     
                     var checkoutResult = await OfflineBookingStorage.CompleteBookingWithPaymentAsync(
                         currentBooking.booking_id,
@@ -403,8 +380,7 @@ namespace UserModule
                 // Calculate amounts
                 decimal extraCharges = decimal.Parse(lblExtraCharges.Text.Replace("₹", ""));
                 decimal totalAmount = decimal.Parse(lblTotalAmount.Text.Replace("₹", ""));
-                decimal paidAmountFromText = decimal.Parse(txtPaidAmount.Text);
-                decimal paidAmount = paidAmountFromText; // Use the editable paid amount
+                decimal paidAmount = decimal.Parse(lblPaidAmount.Text.Replace("₹", ""));
 
                 // Disable button to prevent double clicks
                 btnCompletePayment.IsEnabled = false;
@@ -420,6 +396,23 @@ namespace UserModule
                 );
 
                 bool success = result.Contains("✅");
+
+                // If successful and there's a balance amount, update worker balance
+                if (success)
+                {
+                    decimal workerBalance = totalAmount - paidAmount;
+                    if (workerBalance > 0)
+                    {
+                        string? workerId = LocalStorage.GetItem("workerId");
+                        string? adminId = LocalStorage.GetItem("adminId");
+
+                        if (!string.IsNullOrEmpty(workerId) && !string.IsNullOrEmpty(adminId))
+                        {
+                            await OfflineBookingStorage.UpdateWorkerBalanceAsync(workerId, adminId, workerBalance);
+                            Logger.Log($"Worker balance updated: ₹{workerBalance} for worker {workerId}");
+                        }
+                    }
+                }
 
                 if (success)
                 {

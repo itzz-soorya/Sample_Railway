@@ -423,6 +423,13 @@ namespace UserModule
             SubmitBookingButton.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        private void Report_Click(object sender, RoutedEventArgs e)
+        {
+            SetSelectedButton(ReportButton);
+            SetSubmitButtonVisibility(false); // Hide Submit button
+            LoadContent(new Report());
+        }
+
         /// <summary>
         /// Gets a greeting message based on the current time
         /// </summary>
