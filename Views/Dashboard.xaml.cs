@@ -89,13 +89,13 @@ namespace UserModule
                     // Get current worker ID
                     string? currentWorkerId = LocalStorage.GetItem("workerId");
                     
-                    // Filter to only show bookings created in the last 2 weeks using created_at
+                    // Filter to only show ACTIVE bookings created in the last 2 weeks
                     DateTime twoWeeksAgo = DateTime.Now.AddDays(-14);
                     
                     allBookings = localBookings
                         .Where(b => b.created_at.HasValue && b.created_at.Value >= twoWeeksAgo
-                                    && (b.worker_id == currentWorkerId || 
-                                        b.status?.ToLower() == "active"))
+                                    && b.status?.ToLower() == "active"
+                                    && (b.worker_id == currentWorkerId || true))
                         .OrderByDescending(b => b.created_at)
                         .ToList();
                     
@@ -236,9 +236,9 @@ namespace UserModule
             {
                 filteredBookings = allBookings.Where(b => b.status?.ToLower() == "active");
             }
-            else if (currentFilter == "Completed")
+            else if (currentFilter == "Sitting")
             {
-                filteredBookings = allBookings.Where(b => b.status?.ToLower() == "completed");
+                filteredBookings = allBookings.Where(b => b.booking_type?.ToLower() == "sitting");
             }
             // "All" shows everything, no filter needed
 
@@ -266,12 +266,12 @@ namespace UserModule
             Logger.Log("Filter: Active bookings only");
         }
 
-        private void FilterCompleted_Click(object sender, RoutedEventArgs e)
+        private void FilterSitting_Click(object sender, RoutedEventArgs e)
         {
-            currentFilter = "Completed";
+            currentFilter = "Sitting";
             UpdateFilterButtons();
             ApplyFilter();
-            Logger.Log("Filter: Completed bookings only");
+            Logger.Log("Filter: Sitting bookings only");
         }
 
         private void UpdateFilterButtons()
@@ -283,8 +283,8 @@ namespace UserModule
             btnActiveFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0E0"));
             btnActiveFilter.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#333333"));
             
-            btnCompletedFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0E0"));
-            btnCompletedFilter.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#333333"));
+            btnSittingFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0E0"));
+            btnSittingFilter.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#333333"));
 
             // Set active button
             if (currentFilter == "All")
@@ -297,10 +297,10 @@ namespace UserModule
                 btnActiveFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4CAF50"));
                 btnActiveFilter.Foreground = Brushes.White;
             }
-            else if (currentFilter == "Completed")
+            else if (currentFilter == "Sitting")
             {
-                btnCompletedFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF9800"));
-                btnCompletedFilter.Foreground = Brushes.White;
+                btnSittingFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2196F3"));
+                btnSittingFilter.Foreground = Brushes.White;
             }
         }
 
@@ -536,15 +536,14 @@ namespace UserModule
 
                 // Update status counts
                 ActiveTextBlock.Text = $"Active: {activeCount}";
-                CompletedTextBlock.Text = $"Completed: {completedCount}";
+                
+                // Update booking type counts (Sitting and Sleeper)
+                int sittingCount = allBookings.Count(b => b.booking_type?.ToLower() == "sitting");
+                int sleeperCount = allBookings.Count(b => b.booking_type?.ToLower() == "sleeper");
+                SittingTextBlock.Text = $"Sitting: {sittingCount}";
+                SleeperTextBlock.Text = $"Sleeper: {sleeperCount}";
 
-                // Update booking type counts
-                foreach (var kvp in typeTextBlocks)
-                {
-                    kvp.Value.Text = $"{kvp.Key}: {bookingTypeCounts[kvp.Key]}";
-                }
-
-                Logger.Log($"Counts updated - Active: {activeCount}, Completed: {completedCount}");
+                Logger.Log($"Counts updated - Active: {activeCount}, Sitting: {sittingCount}, Sleeper: {sleeperCount}");
             }
             catch (Exception ex)
             {

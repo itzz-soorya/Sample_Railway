@@ -68,11 +68,12 @@ namespace UserModule
             fromDate = fromDate.Date; // Start of day
             toDate = toDate.Date.AddDays(1).AddSeconds(-1); // End of day
 
-            // Filter bookings by created_at date
+            // Filter bookings by created_at date and COMPLETED status only
             filteredBookings = allBookings
                 .Where(b => b.created_at.HasValue && 
                            b.created_at.Value >= fromDate && 
-                           b.created_at.Value <= toDate)
+                           b.created_at.Value <= toDate &&
+                           b.status?.ToLower() == "completed")
                 .OrderByDescending(b => b.created_at)
                 .ToList();
 
