@@ -892,7 +892,7 @@
                                 </DataGridTemplateColumn.Header>
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding created_by}" FontSize="12"
+                                        <TextBlock Text="{Binding booked_by}" FontSize="12"
                                                    HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"
                                                    TextAlignment="Center"
@@ -912,7 +912,7 @@
                                 </DataGridTemplateColumn.Header>
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding updated_by}" FontSize="12"
+                                        <TextBlock Text="{Binding closed_by}" FontSize="12"
                                                    HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"
                                                    TextAlignment="Center"

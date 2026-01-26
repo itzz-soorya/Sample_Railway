@@ -68,12 +68,20 @@ namespace UserModule
             fromDate = fromDate.Date; // Start of day
             toDate = toDate.Date.AddDays(1).AddSeconds(-1); // End of day
 
-            // Filter bookings by created_at date and COMPLETED status only
+            // Get current logged-in worker info
+            string currentWorkerId = LocalStorage.GetItem("workerId") ?? "";
+            string currentUsername = LocalStorage.GetItem("username") ?? "";
+
+            // Filter bookings by:
+            // 1. Date range and completed status
+            // 2. Either created by this worker (worker_id) OR closed by this worker (closed_by)
             filteredBookings = allBookings
                 .Where(b => b.created_at.HasValue && 
                            b.created_at.Value >= fromDate && 
                            b.created_at.Value <= toDate &&
-                           b.status?.ToLower() == "completed")
+                           b.status?.ToLower() == "completed" &&
+                           (b.worker_id == currentWorkerId || 
+                            b.closed_by == currentUsername))
                 .OrderByDescending(b => b.created_at)
                 .ToList();
 

@@ -26,7 +26,8 @@ namespace UserModule.Models
         public DateTime? updated_at { get; set; }            // Auto-filled when saving locally
         public string? status { get; set; }                   // Active / Pending / Cancelled etc.
         public int IsSynced { get; set; } = 0;               // 0 = not synced, 1 = synced
-        public string? created_by { get; set; }              // Staff who created the booking
-        public string? updated_by { get; set; }              // Staff who closed/updated the booking
+        public string? booked_by { get; set; }               // Worker who created the booking
+        public string? closed_by { get; set; }               // Worker who closed/completed the booking
+        public string? balance_payment_payment { get; set; } // Balance payment method
     }
 }
