@@ -58,7 +58,10 @@ public static class OfflineBookingStorage
             updated_at TEXT,
             status TEXT,
             IsSynced INTEGER DEFAULT 0,
-            room_number TEXT
+            room_number TEXT,
+            booked_by TEXT,
+            closed_by TEXT,
+            balance_payment_payment TEXT
         );";
 
         using (var cmd = new SqliteCommand(createBookingsTable, connection))
@@ -72,6 +75,51 @@ public static class OfflineBookingStorage
             string addRoomNumberColumn = @"
             ALTER TABLE Bookings ADD COLUMN room_number TEXT;";
             using (var cmd = new SqliteCommand(addRoomNumberColumn, connection))
+            {
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch
+        {
+            // Column already exists, ignore error
+        }
+
+        // Add booked_by column if it doesn't exist
+        try
+        {
+            string addBookedByColumn = @"
+            ALTER TABLE Bookings ADD COLUMN booked_by TEXT;";
+            using (var cmd = new SqliteCommand(addBookedByColumn, connection))
+            {
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch
+        {
+            // Column already exists, ignore error
+        }
+
+        // Add closed_by column if it doesn't exist
+        try
+        {
+            string addClosedByColumn = @"
+            ALTER TABLE Bookings ADD COLUMN closed_by TEXT;";
+            using (var cmd = new SqliteCommand(addClosedByColumn, connection))
+            {
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch
+        {
+            // Column already exists, ignore error
+        }
+
+        // Add balance_payment_payment column if it doesn't exist
+        try
+        {
+            string addBalancePaymentColumn = @"
+            ALTER TABLE Bookings ADD COLUMN balance_payment_payment TEXT;";
+            using (var cmd = new SqliteCommand(addBalancePaymentColumn, connection))
             {
                 cmd.ExecuteNonQuery();
             }
@@ -152,10 +200,10 @@ public static class OfflineBookingStorage
         INSERT OR REPLACE INTO Bookings
         (booking_id, worker_id, guest_name, phone_number, number_of_persons, booking_type, total_hours,
          booking_date, in_time, out_time, proof_type, proof_id, price_per_person, total_amount, paid_amount,
-         balance_amount, payment_method, created_at, updated_at, status, IsSynced, room_number)
+         balance_amount, payment_method, created_at, updated_at, status, IsSynced, room_number, booked_by, balance_payment_payment)
         VALUES (@booking_id, @worker_id, @guest_name, @phone_number, @number_of_persons, @booking_type, @total_hours,
                 @booking_date, @in_time, @out_time, @proof_type, @proof_id, @price_per_person, @total_amount, 
-                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 0, @room_number);";
+                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 0, @room_number, @booked_by, @balance_payment_payment);";
 
         using var cmd = new SqliteCommand(insert, connection);
         cmd.Parameters.AddWithValue("@booking_id", booking.booking_id);
@@ -182,6 +230,12 @@ public static class OfflineBookingStorage
             ? "active"
             : booking.status.ToLower());
         cmd.Parameters.AddWithValue("@room_number", booking.room_number ?? "");
+        
+        // Get current worker name for booked_by
+        string workerName = LocalStorage.GetItem("workerName") ?? "Unknown";
+        cmd.Parameters.AddWithValue("@booked_by", workerName);
+        cmd.Parameters.AddWithValue("@balance_payment_payment", "");
+        
         cmd.ExecuteNonQuery();
     }
 
@@ -276,10 +330,10 @@ public static class OfflineBookingStorage
         INSERT OR REPLACE INTO Bookings
         (booking_id, worker_id, guest_name, phone_number, number_of_persons, booking_type, total_hours,
          booking_date, in_time, out_time, proof_type, proof_id, price_per_person, total_amount, paid_amount,
-         balance_amount, payment_method, created_at, updated_at, status, IsSynced, room_number)
+         balance_amount, payment_method, created_at, updated_at, status, IsSynced, room_number, booked_by, balance_payment_payment)
         VALUES (@booking_id, @worker_id, @guest_name, @phone_number, @number_of_persons, @booking_type, @total_hours,
                 @booking_date, @in_time, @out_time, @proof_type, @proof_id, @price_per_person, @total_amount, 
-                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 1, @room_number);";
+                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 1, @room_number, @booked_by, @balance_payment_payment);";
 
         using var cmd = new SqliteCommand(insert, connection);
         cmd.Parameters.AddWithValue("@booking_id", booking.booking_id);
@@ -306,6 +360,12 @@ public static class OfflineBookingStorage
             ? "active"
             : booking.status.ToLower());
         cmd.Parameters.AddWithValue("@room_number", booking.room_number ?? "");
+        
+        // Get current worker name for booked_by
+        string workerName = LocalStorage.GetItem("workerName") ?? "Unknown";
+        cmd.Parameters.AddWithValue("@booked_by", workerName);
+        cmd.Parameters.AddWithValue("@balance_payment_payment", "");
+        
         cmd.ExecuteNonQuery();
     }
 
@@ -639,7 +699,9 @@ public static class OfflineBookingStorage
             string query = @"
             SELECT booking_id, guest_name, phone_number, booking_type, booking_date, in_time, out_time, status, created_at,
                    total_amount, paid_amount, balance_amount, worker_id, number_of_persons, total_hours, price_per_person, 
-                   COALESCE(room_number, '') as room_number
+                   COALESCE(room_number, '') as room_number,
+                   COALESCE(booked_by, '') as booked_by,
+                   COALESCE(closed_by, '') as closed_by
             FROM Bookings
             ORDER BY created_at DESC;";
 
@@ -666,6 +728,8 @@ public static class OfflineBookingStorage
                     out_time = TimeSpan.TryParse(reader["out_time"]?.ToString(), out var outT) ? outT : TimeSpan.Zero,
                     status = reader["status"]?.ToString() ?? string.Empty,
                     room_number = reader["room_number"]?.ToString(),
+                    booked_by = reader["booked_by"]?.ToString() ?? "",
+                    closed_by = reader["closed_by"]?.ToString() ?? "",
                     created_at = reader["created_at"] != DBNull.Value && DateTime.TryParse(reader["created_at"]?.ToString(), out var createdAt) 
                         ? createdAt 
                         : (DateTime?)null
@@ -1066,7 +1130,8 @@ public static class OfflineBookingStorage
                         balance_amount = @balance_amount,
                         payment_method = @payment_method,
                         out_time = @out_time,
-                        updated_at = @updated_at
+                        updated_at = @updated_at,
+                        closed_by = @closed_by
                     WHERE booking_id = @booking_id";
             }
             else if (isSynced == 1)
@@ -1082,7 +1147,8 @@ public static class OfflineBookingStorage
                         payment_method = @payment_method,
                         out_time = @out_time,
                         updated_at = @updated_at,
-                        IsSynced = 2
+                        IsSynced = 2,
+                        closed_by = @closed_by
                     WHERE booking_id = @booking_id";
             }
             else
@@ -1098,6 +1164,10 @@ public static class OfflineBookingStorage
                 updateCmd.Parameters.AddWithValue("@total_amount", totalAmount);
                 updateCmd.Parameters.AddWithValue("@balance_amount", balanceAmount);
                 updateCmd.Parameters.AddWithValue("@payment_method", paymentMethod);
+                
+                // Get current worker name for closed_by
+                string closedByWorker = LocalStorage.GetItem("username") ?? "Unknown";
+                updateCmd.Parameters.AddWithValue("@closed_by", closedByWorker);
                 updateCmd.Parameters.AddWithValue("@out_time", outTime.ToString());
                 updateCmd.Parameters.AddWithValue("@updated_at", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 

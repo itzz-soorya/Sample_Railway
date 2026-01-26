@@ -347,6 +347,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -528,6 +529,99 @@
                             </StackPanel>
                         </Grid>
                     </StackPanel>
+                    
+                    <!-- Payment Mode Section -->
+                    <Grid Grid.Row="5" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0,0,0,20">
+                        <StackPanel>
+                            <TextBlock Text="Payment Mode" FontWeight="SemiBold" FontSize="16" Foreground="#333" Margin="0,0,0,12"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                <!-- Cash Radio Button -->
+                                <RadioButton x:Name="rbCash" 
+                                            Content="Cash" 
+                                            GroupName="PaymentMode"
+                                            IsChecked="True"
+                                            Margin="0,0,30,0"
+                                            FontSize="14"
+                                            FontWeight="Medium"
+                                            VerticalContentAlignment="Center">
+                                    <RadioButton.Style>
+                                        <Style TargetType="RadioButton">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="RadioButton">
+                                                        <Border x:Name="border"
+                                                                Background="#F9FAFB"
+                                                                BorderBrush="#E5E7EB"
+                                                                BorderThickness="2"
+                                                                CornerRadius="8"
+                                                                Padding="20,12"
+                                                                MinWidth="140"
+                                                                Cursor="Hand">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="💵" FontSize="20" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                                <ContentPresenter VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsChecked" Value="True">
+                                                                <Setter TargetName="border" Property="Background" Value="#ECFDF5"/>
+                                                                <Setter TargetName="border" Property="BorderBrush" Value="#10B981"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="border" Property="BorderBrush" Value="#9CA3AF"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </RadioButton.Style>
+                                </RadioButton>
+
+                                <!-- UPI Radio Button -->
+                                <RadioButton x:Name="rbUPI" 
+                                            Content="UPI" 
+                                            GroupName="PaymentMode"
+                                            FontSize="14"
+                                            FontWeight="Medium"
+                                            VerticalContentAlignment="Center">
+                                    <RadioButton.Style>
+                                        <Style TargetType="RadioButton">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="RadioButton">
+                                                        <Border x:Name="border"
+                                                                Background="#F9FAFB"
+                                                                BorderBrush="#E5E7EB"
+                                                                BorderThickness="2"
+                                                                CornerRadius="8"
+                                                                Padding="20,12"
+                                                                MinWidth="140"
+                                                                Cursor="Hand">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="📱" FontSize="20" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                                <ContentPresenter VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsChecked" Value="True">
+                                                                <Setter TargetName="border" Property="Background" Value="#EFF6FF"/>
+                                                                <Setter TargetName="border" Property="BorderBrush" Value="#3B82F6"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="border" Property="BorderBrush" Value="#9CA3AF"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </RadioButton.Style>
+                                </RadioButton>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                    
                     <!-- Proof Information -->
                     <Grid Grid.Row="4" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0,0,0,20">
                         <Grid.ColumnDefinitions>
@@ -584,7 +678,7 @@
                     </Grid>
 
                     <!-- Submit / Cancel Buttons -->
-                    <Grid Grid.Row="5" Grid.ColumnSpan="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,20,0,0">
+                    <Grid Grid.Row="6" Grid.ColumnSpan="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,20,0,0">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
                             <Button x:Name="GenerateBillButton" 
                                     Content="Generate Bill" 

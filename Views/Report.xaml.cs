@@ -68,12 +68,20 @@ namespace UserModule
             fromDate = fromDate.Date; // Start of day
             toDate = toDate.Date.AddDays(1).AddSeconds(-1); // End of day
 
-            // Filter bookings by created_at date and COMPLETED status only
+            // Get current logged-in worker info
+            string currentWorkerId = LocalStorage.GetItem("workerId") ?? "";
+            string currentUsername = LocalStorage.GetItem("username") ?? "";
+
+            // Filter bookings by:
+            // 1. Date range and completed status
+            // 2. Either created by this worker (worker_id) OR closed by this worker (closed_by)
             filteredBookings = allBookings
                 .Where(b => b.created_at.HasValue && 
                            b.created_at.Value >= fromDate && 
                            b.created_at.Value <= toDate &&
-                           b.status?.ToLower() == "completed")
+                           b.status?.ToLower() == "completed" &&
+                           (b.worker_id == currentWorkerId || 
+                            b.closed_by == currentUsername))
                 .OrderByDescending(b => b.created_at)
                 .ToList();
 
@@ -634,7 +642,7 @@ namespace UserModule
         }
     }
 
-    // Converter for payment display (amount with C/O indicator)
+    // Converter for payment display (amount with (c)/(u) indicator)
     public class PaymentDisplayConverter : IMultiValueConverter
     {
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
@@ -644,20 +652,28 @@ namespace UserModule
                 try
                 {
                     decimal amount = System.Convert.ToDecimal(values[0]);
-                    string paymentMethod = values[1]?.ToString() ?? "";
+                    string paymentMethod = values[1]?.ToString()?.Trim() ?? "";
                     
                     if (amount == 0)
                         return "0";
                     
-                    string indicator = "";
-                    if (paymentMethod.Equals("Cash", StringComparison.OrdinalIgnoreCase))
-                        indicator = "(C)";
-                    else if (paymentMethod.Equals("Online", StringComparison.OrdinalIgnoreCase) ||
-                             paymentMethod.Equals("UPI", StringComparison.OrdinalIgnoreCase) ||
-                             paymentMethod.Equals("Card", StringComparison.OrdinalIgnoreCase))
-                        indicator = "(O)";
+                    string indicator = "(c)";  // Default to cash
                     
-                    return $"{amount:N0}{indicator}";
+                    if (!string.IsNullOrWhiteSpace(paymentMethod))
+                    {
+                        if (paymentMethod.Equals("Cash", StringComparison.OrdinalIgnoreCase))
+                            indicator = "(c)";
+                        else if (paymentMethod.Equals("Online", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("UPI", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("Card", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("GPay", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("PhonePe", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("Google Pay", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("Net Banking", StringComparison.OrdinalIgnoreCase))
+                            indicator = "(u)";
+                    }
+                    
+                    return $"{amount:N0} {indicator}";
                 }
                 catch
                 {

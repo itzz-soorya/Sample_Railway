@@ -52,7 +52,8 @@ namespace UserModule
                 }
                 UpdateGreeting(username);
 
-                InitializeBookingTypeCounts();
+                // No longer needed - we have fixed badges in XAML
+                // InitializeBookingTypeCounts();
                 UpdateCountsFromBookings();
 
                 // Fetch worker balance on load
@@ -232,13 +233,13 @@ namespace UserModule
             
             IEnumerable<Booking1> filteredBookings = allBookings;
 
-            if (currentFilter == "Active")
-            {
-                filteredBookings = allBookings.Where(b => b.status?.ToLower() == "active");
-            }
-            else if (currentFilter == "Sitting")
+            if (currentFilter == "Sitting")
             {
                 filteredBookings = allBookings.Where(b => b.booking_type?.ToLower() == "sitting");
+            }
+            else if (currentFilter == "Sleeper")
+            {
+                filteredBookings = allBookings.Where(b => b.booking_type?.ToLower() == "sleeper");
             }
             // "All" shows everything, no filter needed
 
@@ -258,12 +259,12 @@ namespace UserModule
             Logger.Log("Filter: All bookings");
         }
 
-        private void FilterActive_Click(object sender, RoutedEventArgs e)
+        private void FilterSleeper_Click(object sender, RoutedEventArgs e)
         {
-            currentFilter = "Active";
+            currentFilter = "Sleeper";
             UpdateFilterButtons();
             ApplyFilter();
-            Logger.Log("Filter: Active bookings only");
+            Logger.Log("Filter: Sleeper bookings only");
         }
 
         private void FilterSitting_Click(object sender, RoutedEventArgs e)
@@ -280,11 +281,11 @@ namespace UserModule
             btnAllFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0E0"));
             btnAllFilter.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#333333"));
             
-            btnActiveFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0E0"));
-            btnActiveFilter.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#333333"));
-            
             btnSittingFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0E0"));
             btnSittingFilter.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#333333"));
+            
+            btnSleeperFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0E0"));
+            btnSleeperFilter.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#333333"));
 
             // Set active button
             if (currentFilter == "All")
@@ -292,15 +293,15 @@ namespace UserModule
                 btnAllFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#232323"));
                 btnAllFilter.Foreground = Brushes.White;
             }
-            else if (currentFilter == "Active")
-            {
-                btnActiveFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4CAF50"));
-                btnActiveFilter.Foreground = Brushes.White;
-            }
             else if (currentFilter == "Sitting")
             {
                 btnSittingFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2196F3"));
                 btnSittingFilter.Foreground = Brushes.White;
+            }
+            else if (currentFilter == "Sleeper")
+            {
+                btnSleeperFilter.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9C27B0"));
+                btnSleeperFilter.Foreground = Brushes.White;
             }
         }
 

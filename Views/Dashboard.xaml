@@ -330,8 +330,8 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button x:Name="btnActiveFilter" Content="Active" 
-                                    Width="70" Height="32" 
+                            <Button x:Name="btnSittingFilter" Content="Sitting" 
+                                    Width="90" Height="32" 
                                     Background="#E0E0E0" 
                                     Foreground="#333333"
                                     BorderThickness="0"
@@ -339,7 +339,7 @@
                                     FontWeight="SemiBold"
                                     Margin="0,0,6,0"
                                     Cursor="Hand"
-                                    Click="FilterActive_Click">
+                                    Click="FilterSitting_Click">
                                 <Button.Style>
                                     <Style TargetType="Button">
                                         <Setter Property="Template">
@@ -362,7 +362,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button x:Name="btnSittingFilter" Content="Sitting" 
+                            <Button x:Name="btnSleeperFilter" Content="Sleeper" 
                                     Width="90" Height="32" 
                                     Background="#E0E0E0" 
                                     Foreground="#333333"
@@ -370,7 +370,7 @@
                                     FontSize="13"
                                     FontWeight="SemiBold"
                                     Cursor="Hand"
-                                    Click="FilterSitting_Click">
+                                    Click="FilterSleeper_Click">
                                 <Button.Style>
                                     <Style TargetType="Button">
                                         <Setter Property="Template">
