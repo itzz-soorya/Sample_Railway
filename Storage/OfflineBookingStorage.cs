@@ -701,7 +701,9 @@ public static class OfflineBookingStorage
                    total_amount, paid_amount, balance_amount, worker_id, number_of_persons, total_hours, price_per_person, 
                    COALESCE(room_number, '') as room_number,
                    COALESCE(booked_by, '') as booked_by,
-                   COALESCE(closed_by, '') as closed_by
+                   COALESCE(closed_by, '') as closed_by,
+                   COALESCE(payment_method, '') as payment_method,
+                   COALESCE(balance_payment_payment, '') as balance_payment_payment
             FROM Bookings
             ORDER BY created_at DESC;";
 
@@ -730,6 +732,8 @@ public static class OfflineBookingStorage
                     room_number = reader["room_number"]?.ToString(),
                     booked_by = reader["booked_by"]?.ToString() ?? "",
                     closed_by = reader["closed_by"]?.ToString() ?? "",
+                    payment_method = reader["payment_method"]?.ToString() ?? "",
+                    balance_payment_payment = reader["balance_payment_payment"]?.ToString() ?? "",
                     created_at = reader["created_at"] != DBNull.Value && DateTime.TryParse(reader["created_at"]?.ToString(), out var createdAt) 
                         ? createdAt 
                         : (DateTime?)null
@@ -1100,10 +1104,11 @@ public static class OfflineBookingStorage
             DateTime inDateTime  = bookingDate.Date + inTime;
             DateTime outDateTime = bookingDate.Date + outTime;
 
-            // If out time is earlier than in time → reject (invalid selection)
+            // If out time is earlier than in time, it means checkout is on the next day
             if (outDateTime < inDateTime)
             {
-                return "❌ Out Time cannot be earlier than In Time";
+                // Add one day to out_time to handle overnight stays
+                outDateTime = outDateTime.AddDays(1);
             }
 
             // Calculate exact duration
@@ -1121,6 +1126,7 @@ public static class OfflineBookingStorage
             if (isSynced == 0)
             {
                 // Only update the booking details, don't touch IsSynced
+                // Store checkout payment method in balance_payment_payment (preserve original payment_method for advance)
                 updateQuery = @"
                     UPDATE Bookings 
                     SET status = 'completed',
@@ -1128,7 +1134,7 @@ public static class OfflineBookingStorage
                         paid_amount = @paid_amount,
                         total_amount = @total_amount,
                         balance_amount = @balance_amount,
-                        payment_method = @payment_method,
+                        balance_payment_payment = @payment_method,
                         out_time = @out_time,
                         updated_at = @updated_at,
                         closed_by = @closed_by
@@ -1137,6 +1143,7 @@ public static class OfflineBookingStorage
             else if (isSynced == 1)
             {
                 // Update booking details and set IsSynced = 2
+                // Store checkout payment method in balance_payment_payment (preserve original payment_method for advance)
                 updateQuery = @"
                     UPDATE Bookings 
                     SET status = 'completed',
@@ -1144,7 +1151,7 @@ public static class OfflineBookingStorage
                         paid_amount = @paid_amount,
                         total_amount = @total_amount,
                         balance_amount = @balance_amount,
-                        payment_method = @payment_method,
+                        balance_payment_payment = @payment_method,
                         out_time = @out_time,
                         updated_at = @updated_at,
                         IsSynced = 2,

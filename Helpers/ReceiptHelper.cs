@@ -382,6 +382,256 @@ namespace UserModule
         /// <summary>
         /// Utility: render UIElement to PNG file on disk.
         /// </summary>
+        /// <summary>
+        /// Generate and print reprint receipt for report with specific bill structure
+        /// Structure: Customer name, phone no, no of person, type, in time, out time, total hours, 
+        /// advance amount, balance amount, with header and footer info
+        /// </summary>
+        public static bool GenerateAndPrintReprintReceipt(Booking1 booking, string? savePngPath = null)
+        {
+            if (booking == null) throw new ArgumentNullException(nameof(booking));
+
+            try
+            {
+                var printerProfile = PrinterHelper.GetCurrentPrinterProfile();
+                var printerDetails = OfflineBookingStorage.GetPrinterDetails();
+
+                // Calculate values
+                int hours = booking.total_hours;
+                int persons = booking.number_of_persons;
+                double rate = Convert.ToDouble(booking.price_per_person);
+                double paid = Convert.ToDouble(booking.paid_amount);
+                double total = Convert.ToDouble(booking.total_amount);
+                double balance = total - paid;
+
+                // Create root panel
+                var root = new StackPanel
+                {
+                    Background = Brushes.White,
+                    Width = printerProfile.ReceiptWidth,
+                    Margin = new Thickness(0, 0, 0, 0),
+                    Orientation = Orientation.Vertical,
+                    HorizontalAlignment = HorizontalAlignment.Stretch
+                };
+
+                // Helper function to add key-value rows
+                void AddRow(string label, string value, bool isBold = false, bool isCentered = false)
+                {
+                    var grid = new Grid
+                    {
+                        Margin = new Thickness(0, 2, 0, 2),
+                        HorizontalAlignment = HorizontalAlignment.Stretch
+                    };
+
+                    if (isCentered)
+                    {
+                        var textBlock = new TextBlock
+                        {
+                            Text = value,
+                            FontSize = 12,
+                            FontWeight = isBold ? FontWeights.Bold : FontWeights.Normal,
+                            TextAlignment = TextAlignment.Center,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            Margin = new Thickness(printerProfile.LeftMargin, 0, printerProfile.RightMargin, 0)
+                        };
+                        grid.Children.Add(textBlock);
+                    }
+                    else
+                    {
+                        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110, GridUnitType.Pixel) });
+                        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Auto) });
+                        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                        var leftBlock = new TextBlock
+                        {
+                            Text = label,
+                            FontSize = 12,
+                            FontWeight = isBold ? FontWeights.Bold : FontWeights.Normal,
+                            Margin = new Thickness(printerProfile.LeftMargin, 0, 0, 0),
+                            TextAlignment = TextAlignment.Left
+                        };
+                        Grid.SetColumn(leftBlock, 0);
+
+                        var colonBlock = new TextBlock
+                        {
+                            Text = ":",
+                            FontSize = 12,
+                            FontWeight = isBold ? FontWeights.Bold : FontWeights.Normal,
+                            Margin = new Thickness(3, 0, 8, 0)
+                        };
+                        Grid.SetColumn(colonBlock, 1);
+
+                        var rightBlock = new TextBlock
+                        {
+                            Text = value,
+                            FontSize = 12,
+                            FontWeight = isBold ? FontWeights.Bold : FontWeights.Normal,
+                            TextAlignment = TextAlignment.Left
+                        };
+                        Grid.SetColumn(rightBlock, 2);
+
+                        grid.Children.Add(leftBlock);
+                        grid.Children.Add(colonBlock);
+                        grid.Children.Add(rightBlock);
+                    }
+
+                    root.Children.Add(grid);
+                }
+
+                // Header - Heading 1
+                if (!string.IsNullOrWhiteSpace(printerDetails.heading1))
+                {
+                    AddRow("", printerDetails.heading1.ToUpper(), isBold: true, isCentered: true);
+                }
+
+                // Header - Heading 2
+                if (!string.IsNullOrWhiteSpace(printerDetails.heading2))
+                {
+                    AddRow("", printerDetails.heading2.ToUpper(), isBold: true, isCentered: true);
+                }
+
+                // Info 1 and Info 2
+                if (!string.IsNullOrWhiteSpace(printerDetails.info1))
+                {
+                    AddRow("", printerDetails.info1, isCentered: true);
+                }
+
+                if (!string.IsNullOrWhiteSpace(printerDetails.info2))
+                {
+                    AddRow("", printerDetails.info2, isCentered: true);
+                }
+
+                // Add separator line
+                root.Children.Add(new Border
+                {
+                    Height = 1,
+                    Background = new SolidColorBrush(Color.FromRgb(200, 200, 200)),
+                    Margin = new Thickness(printerProfile.LeftMargin, 3, printerProfile.RightMargin, 3)
+                });
+
+                // BILL STRUCTURE as per requirement
+                AddRow("", "--- REPRINT BILL ---", isBold: true, isCentered: true);
+
+                // Customer name
+                AddRow("Customer Name", booking.guest_name ?? "N/A");
+
+                // Phone no
+                AddRow("Phone No", booking.phone_number ?? "N/A");
+
+                // No of person
+                AddRow("No of Person", persons.ToString());
+
+                // Type
+                AddRow("Type", booking.booking_type ?? "N/A");
+
+                // In time
+                string inTimeStr = booking.booking_date != DateTime.MinValue 
+                    ? booking.booking_date.ToString("HH:mm") 
+                    : "N/A";
+                AddRow("In Time", inTimeStr);
+
+                // Out time
+                string outTimeStr = "Pending";
+                if (booking.out_time.HasValue)
+                {
+                    outTimeStr = booking.out_time.Value.ToString(@"hh\:mm");
+                }
+                else if (booking.booking_date != DateTime.MinValue)
+                {
+                    var calculatedOutTime = booking.booking_date.Add(TimeSpan.FromHours(hours));
+                    outTimeStr = calculatedOutTime.ToString("HH:mm");
+                }
+                AddRow("Out Time", outTimeStr);
+
+                // Total hours
+                AddRow("Total Hours", hours.ToString());
+
+                // Advance amount (paid amount)
+                AddRow("Advance Amount", $"₹{paid:F0}");
+
+                // Balance amount
+                AddRow("Balance Amount", $"₹{balance:F0}");
+
+                // Total amount
+                AddRow("Total Amount", $"₹{total:F0}", isBold: true);
+
+                // Booking staff
+                AddRow("Booking Staff", booking.booked_by ?? "N/A");
+
+                // Closing staff
+                AddRow("Closing Staff", booking.closed_by ?? "N/A");
+
+                // Add separator line
+                root.Children.Add(new Border
+                {
+                    Height = 1,
+                    Background = new SolidColorBrush(Color.FromRgb(200, 200, 200)),
+                    Margin = new Thickness(printerProfile.LeftMargin, 3, printerProfile.RightMargin, 3)
+                });
+
+                // Note at the bottom (if provided)
+                if (!string.IsNullOrWhiteSpace(printerDetails.note))
+                {
+                    root.Children.Add(new TextBlock
+                    {
+                        Text = $"Note: {printerDetails.note}",
+                        FontSize = 9,
+                        Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
+                        TextAlignment = TextAlignment.Center,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        TextWrapping = TextWrapping.Wrap,
+                        Margin = new Thickness(printerProfile.LeftMargin, 2, printerProfile.RightMargin, 2)
+                    });
+                }
+
+                // Footer - Powered by Artechnologi
+                root.Children.Add(new TextBlock
+                {
+                    Text = "Powered by Artechnologi",
+                    FontSize = 9,
+                    FontWeight = FontWeights.SemiBold,
+                    TextAlignment = TextAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 2, 0, 1)
+                });
+
+                // Thank you message
+                root.Children.Add(new TextBlock
+                {
+                    Text = "Thank you visit again",
+                    FontSize = 9,
+                    FontWeight = FontWeights.SemiBold,
+                    TextAlignment = TextAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 0, 0, 5)
+                });
+
+                // Optionally save to PNG file for record
+                if (!string.IsNullOrWhiteSpace(savePngPath))
+                {
+                    try
+                    {
+                        SaveVisualToPng(root, savePngPath);
+                    }
+                    catch (Exception)
+                    {
+                        // swallow or log — saving is optional
+                        MessageBox.Show($"Failed to save reprint receipt PNG", "Save Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                }
+
+                // Print
+                bool printed = PrinterHelper.TryPrint(root);
+
+                return printed;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                return false;
+            }
+        }
+
         private static void SaveVisualToPng(UIElement visual, string path)
         {
             if (visual == null) throw new ArgumentNullException(nameof(visual));

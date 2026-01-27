@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using UserModule.Models;
 
@@ -193,29 +194,48 @@ namespace UserModule
                 return;
             }
 
-            // Group by payment method and sum paid amounts
-            // Note: This shows the final payment method used
-            // For bookings with mixed payments (advance online + balance cash),
-            // only the last payment method is recorded in current system
-            
             int totalCount = filteredBookings.Count;
             decimal cashAmount = 0;
             decimal onlineAmount = 0;
 
             foreach (var booking in filteredBookings)
             {
-                string paymentMethod = booking.payment_method?.ToLower() ?? "cash";
+                // Calculate advance payment (paid_amount) based on payment_method
+                string advancePaymentMethod = (booking.payment_method ?? "cash").Trim().ToLower();
                 decimal paidAmt = booking.paid_amount;
 
-                // Check if payment method is cash
-                if (paymentMethod == "cash")
+                if (IsCashPayment(advancePaymentMethod))
                 {
                     cashAmount += paidAmt;
                 }
-                // Otherwise treat as online (UPI, Online, Card, PhonePe, GooglePay, etc.)
                 else
                 {
+                    // Online, UPI, Card, PhonePe, GooglePay, etc.
                     onlineAmount += paidAmt;
+                }
+
+                // Calculate balance payment based on balance_payment_payment
+                decimal balanceAmt = booking.balance_amount;
+                
+                if (balanceAmt > 0)
+                {
+                    string balancePaymentMethod = (booking.balance_payment_payment ?? "").Trim().ToLower();
+                    
+                    // If balance payment method is not specified, default to cash
+                    if (string.IsNullOrEmpty(balancePaymentMethod))
+                    {
+                        balancePaymentMethod = "cash";
+                    }
+                    
+                    if (IsCashPayment(balancePaymentMethod))
+                    {
+                        cashAmount += balanceAmt;
+                    }
+                    else
+                    {
+                        // Online, UPI, Card, etc.
+                        onlineAmount += balanceAmt;
+                    }
                 }
             }
 
@@ -223,6 +243,30 @@ namespace UserModule
             txtPaymentCount.Text = totalCount.ToString();
             txtCashAmount.Text = $"₹{cashAmount:N0}";
             txtOnlineAmount.Text = $"₹{onlineAmount:N0}";
+        }
+
+        private bool IsCashPayment(string paymentMethod)
+        {
+            if (string.IsNullOrWhiteSpace(paymentMethod))
+                return true; // Default to cash
+                
+            paymentMethod = paymentMethod.Trim().ToLower();
+            
+            // Check if it's an online payment method
+            if (paymentMethod == "online" ||
+                paymentMethod == "upi" ||
+                paymentMethod == "card" ||
+                paymentMethod == "gpay" ||
+                paymentMethod == "phonepe" ||
+                paymentMethod == "google pay" ||
+                paymentMethod == "net banking" ||
+                paymentMethod == "u")  // short form for UPI
+            {
+                return false; // It's online payment
+            }
+            
+            // Otherwise treat as cash (including "cash", "c", or any other unknown value)
+            return true;
         }
 
         private void UpdateDataGrid()
@@ -571,10 +615,20 @@ namespace UserModule
                 var button = sender as System.Windows.Controls.Button;
                 if (button?.Tag is Booking1 booking)
                 {
-                    // Print receipt using existing helper
-                    bool success = ReceiptHelper.GenerateAndPrintReceipt(booking);
+                    // Print reprint receipt using new reprint helper
+                    bool success = ReceiptHelper.GenerateAndPrintReprintReceipt(booking);
                     
-                    Logger.Log($"Reprinted receipt for booking {booking.booking_id}");
+                    if (success)
+                    {
+                        Logger.Log($"Reprinted receipt for booking {booking.booking_id}");
+                        MessageBox.Show("Receipt reprinted successfully!", "Success", 
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Failed to print receipt. Please check if printer is online.", "Print Error", 
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
                 }
             }
             catch (Exception ex)
@@ -686,6 +740,25 @@ namespace UserModule
         public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
+        }
+    }
+
+    public partial class Report
+    {
+        /// <summary>
+        /// Handles mouse wheel scrolling for the entire UserControl
+        /// Ensures scrolling works regardless of which child control the cursor is over
+        /// </summary>
+        private void UserControl_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            // Forward the scroll event to the main ScrollViewer
+            if (MainScrollViewer != null)
+            {
+                // Calculate scroll amount (negative delta = scroll down, positive = scroll up)
+                double scrollAmount = e.Delta > 0 ? -50 : 50;
+                MainScrollViewer.ScrollToVerticalOffset(MainScrollViewer.VerticalOffset + scrollAmount);
+                e.Handled = true;
+            }
         }
     }
 }
