@@ -61,7 +61,7 @@ public static class OfflineBookingStorage
             room_number TEXT,
             booked_by TEXT,
             closed_by TEXT,
-            balance_payment_payment TEXT
+            balance_payment_method TEXT
         );";
 
         using (var cmd = new SqliteCommand(createBookingsTable, connection))
@@ -114,11 +114,11 @@ public static class OfflineBookingStorage
             // Column already exists, ignore error
         }
 
-        // Add balance_payment_payment column if it doesn't exist
+        // Add balance_payment_method column if it doesn't exist
         try
         {
             string addBalancePaymentColumn = @"
-            ALTER TABLE Bookings ADD COLUMN balance_payment_payment TEXT;";
+            ALTER TABLE Bookings ADD COLUMN balance_payment_method TEXT;";
             using (var cmd = new SqliteCommand(addBalancePaymentColumn, connection))
             {
                 cmd.ExecuteNonQuery();
@@ -147,12 +147,45 @@ public static class OfflineBookingStorage
             type_2_amount REAL,
             advance_payment_enabled INTEGER DEFAULT 0,
             default_advance_percentage REAL DEFAULT 0,
-            last_synced TEXT
+            last_synced TEXT,
+            grace_time_type_1 INTEGER DEFAULT 25,
+            grace_time_type_2 INTEGER DEFAULT 25
         );";
 
         using (var cmd = new SqliteCommand(createSettingsTable, connection))
         {
             cmd.ExecuteNonQuery();
+        }
+
+        // Add grace time columns if they don't exist (migration)
+        try
+        {
+            string addGraceTimeColumns = @"
+            ALTER TABLE Settings ADD COLUMN grace_time_type_1 INTEGER DEFAULT 25;
+            ALTER TABLE Settings ADD COLUMN grace_time_type_2 INTEGER DEFAULT 25;";
+            using (var cmd = new SqliteCommand(addGraceTimeColumns, connection))
+            {
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch
+        {
+            // Columns already exist, ignore error
+        }
+        
+        // Add extra_charges column to workers_summary if it doesn't exist
+        try
+        {
+            string addExtraChargesColumn = @"
+            ALTER TABLE workers_summary ADD COLUMN extra_charges REAL DEFAULT 0;";
+            using (var cmd = new SqliteCommand(addExtraChargesColumn, connection))
+            {
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch
+        {
+            // Column already exists, ignore error
         }
 
         // Create HourlyPricing table for hour-based pricing tiers
@@ -171,18 +204,38 @@ public static class OfflineBookingStorage
             cmd.ExecuteNonQuery();
         }
 
-        // Create worker_balance table for tracking worker balance updates
-        string createWorkerBalanceTable = @"
-        CREATE TABLE IF NOT EXISTS worker_balance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            admin_id TEXT,
-            worker_id TEXT,
-            balance_amount REAL,
-            is_synced INTEGER DEFAULT 0,
-            created_at TEXT
+        // Create workers_summary table for tracking comprehensive worker session data
+        string createWorkersSummaryTable = @"
+        CREATE TABLE IF NOT EXISTS workers_summary (
+            s_no INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_id TEXT NOT NULL,
+            worker_id TEXT NOT NULL,
+            
+            total_booking INTEGER DEFAULT 0,
+            total_person INTEGER DEFAULT 0,
+            
+            sitting_booking_count INTEGER DEFAULT 0,
+            sleeping_booking_count INTEGER DEFAULT 0,
+            
+            sitting_booking_total_amount REAL DEFAULT 0,
+            sleeping_total_amount REAL DEFAULT 0,
+            
+            in_cash_collect REAL DEFAULT 0,
+            in_upi_collect REAL DEFAULT 0,
+            
+            total_balance REAL DEFAULT 0,
+            extra_charges REAL DEFAULT 0,
+            
+            login_time TEXT,
+            created_time TEXT,
+            closed_time TEXT,
+            last_updated_timestamp TEXT,
+            
+            status TEXT DEFAULT 'active',
+            is_synced INTEGER DEFAULT 0
         );";
 
-        using (var cmd = new SqliteCommand(createWorkerBalanceTable, connection))
+        using (var cmd = new SqliteCommand(createWorkersSummaryTable, connection))
         {
             cmd.ExecuteNonQuery();
         }
@@ -200,10 +253,10 @@ public static class OfflineBookingStorage
         INSERT OR REPLACE INTO Bookings
         (booking_id, worker_id, guest_name, phone_number, number_of_persons, booking_type, total_hours,
          booking_date, in_time, out_time, proof_type, proof_id, price_per_person, total_amount, paid_amount,
-         balance_amount, payment_method, created_at, updated_at, status, IsSynced, room_number, booked_by, balance_payment_payment)
+         balance_amount, payment_method, created_at, updated_at, status, IsSynced, room_number, booked_by, balance_payment_method)
         VALUES (@booking_id, @worker_id, @guest_name, @phone_number, @number_of_persons, @booking_type, @total_hours,
                 @booking_date, @in_time, @out_time, @proof_type, @proof_id, @price_per_person, @total_amount, 
-                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 0, @room_number, @booked_by, @balance_payment_payment);";
+                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 0, @room_number, @booked_by, @balance_payment_method);";
 
         using var cmd = new SqliteCommand(insert, connection);
         cmd.Parameters.AddWithValue("@booking_id", booking.booking_id);
@@ -234,9 +287,21 @@ public static class OfflineBookingStorage
         // Get current worker name for booked_by
         string workerName = LocalStorage.GetItem("workerName") ?? "Unknown";
         cmd.Parameters.AddWithValue("@booked_by", workerName);
-        cmd.Parameters.AddWithValue("@balance_payment_payment", "");
+        cmd.Parameters.AddWithValue("@balance_payment_method", "");
         
         cmd.ExecuteNonQuery();
+
+        // Update worker summary
+        string adminId = LocalStorage.GetItem("adminId") ?? "";
+        if (!string.IsNullOrEmpty(booking.worker_id) && !string.IsNullOrEmpty(adminId))
+        {
+            UpdateWorkerSummaryOnBooking(booking.worker_id, adminId, booking);
+            Logger.Log($"Worker summary updated for worker {booking.worker_id}, admin {adminId}");
+        }
+        else
+        {
+            Logger.Log($"Skipped worker summary update: worker_id={booking.worker_id}, adminId={adminId}");
+        }
     }
 
     // New method: Save booking with online-first approach
@@ -263,6 +328,7 @@ public static class OfflineBookingStorage
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 var response = await client.PostAsync(CreateBookingApiUrl, content);
+                string responseBody = await response.Content.ReadAsStringAsync();
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -271,21 +337,21 @@ public static class OfflineBookingStorage
                     
                     if (showMessages)
                     {
-                        MessageBox.Show("✅ Booking saved online successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBox.Show($"✅ Booking saved online successfully!\n\nAPI Response:\n{responseBody}", 
+                            "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     return true;
                 }
                 else
                 {
                     // API rejected, save offline
-                    string responseBody = await response.Content.ReadAsStringAsync();
                     Logger.Log($"API rejected booking: {response.StatusCode} - {responseBody}");
                     SaveOffline(booking);
                     
                     if (showMessages)
                     {
-                        MessageBox.Show($"Booking saved locally.\nWill sync when connection is restored.", 
-                            "Saved Offline", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        MessageBox.Show($"❌ API Error: {response.StatusCode}\n\nResponse:\n{responseBody}\n\nBooking saved locally.\nWill sync when connection is restored.", 
+                            "API Error - Saved Offline", MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
                     return false;
                 }
@@ -298,8 +364,8 @@ public static class OfflineBookingStorage
                 
                 if (showMessages)
                 {
-                    MessageBox.Show($"Booking saved locally.\nWill sync when connection is restored.", 
-                        "Saved Offline", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show($"❌ Connection Error\n\nError: {ex.Message}\n\nBooking saved locally and will sync when connection is restored.", 
+                        "Network Error - Saved Offline", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
                 return false;
             }
@@ -311,8 +377,8 @@ public static class OfflineBookingStorage
             
             if (showMessages)
             {
-                MessageBox.Show("📴 No internet connection. Booking saved locally.\nWill sync when connection is restored.", 
-                    "Saved Offline", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("📴 No Internet Connection\n\nBooking saved locally and will sync when connection is restored.", 
+                    "Offline Mode", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             return false;
         }
@@ -330,10 +396,10 @@ public static class OfflineBookingStorage
         INSERT OR REPLACE INTO Bookings
         (booking_id, worker_id, guest_name, phone_number, number_of_persons, booking_type, total_hours,
          booking_date, in_time, out_time, proof_type, proof_id, price_per_person, total_amount, paid_amount,
-         balance_amount, payment_method, created_at, updated_at, status, IsSynced, room_number, booked_by, balance_payment_payment)
+         balance_amount, payment_method, created_at, updated_at, status, IsSynced, room_number, booked_by, balance_payment_method)
         VALUES (@booking_id, @worker_id, @guest_name, @phone_number, @number_of_persons, @booking_type, @total_hours,
                 @booking_date, @in_time, @out_time, @proof_type, @proof_id, @price_per_person, @total_amount, 
-                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 1, @room_number, @booked_by, @balance_payment_payment);";
+                @paid_amount, @balance_amount, @payment_method, @created_at, @updated_at, @status, 1, @room_number, @booked_by, @balance_payment_method);";
 
         using var cmd = new SqliteCommand(insert, connection);
         cmd.Parameters.AddWithValue("@booking_id", booking.booking_id);
@@ -364,9 +430,19 @@ public static class OfflineBookingStorage
         // Get current worker name for booked_by
         string workerName = LocalStorage.GetItem("workerName") ?? "Unknown";
         cmd.Parameters.AddWithValue("@booked_by", workerName);
-        cmd.Parameters.AddWithValue("@balance_payment_payment", "");
+        
+        // balance_payment_method is empty until checkout completes with balance payment
+        cmd.Parameters.AddWithValue("@balance_payment_method", "");
         
         cmd.ExecuteNonQuery();
+
+        // Update worker summary for online bookings too
+        string adminId = LocalStorage.GetItem("adminId") ?? "";
+        if (!string.IsNullOrEmpty(booking.worker_id) && !string.IsNullOrEmpty(adminId))
+        {
+            UpdateWorkerSummaryOnBooking(booking.worker_id, adminId, booking);
+            Logger.Log($"Worker summary updated (online booking) for worker {booking.worker_id}, admin {adminId}");
+        }
     }
 
     // Get count of pending bookings to sync (both new and updated)
@@ -385,8 +461,8 @@ public static class OfflineBookingStorage
         });
     }
 
-    // Online Syncing
-    public static async Task<int> SyncAllOfflineBookingsAsync(string apiUrl = "https://railway-api-worker.artechnology.pro/api/Booking/create", bool showMessages = true)
+    // Online Syncing https://railway-api-worker.artechnology.pro/api/Booking/create
+    public static async Task<int> SyncAllOfflineBookingsAsync(string apiUrl = "http://localhost:5128/api/Booking/create", bool showMessages = true)
     {
         using var connection = new SqliteConnection($"Data Source={DbPath}");
         connection.Open();
@@ -1116,6 +1192,10 @@ public static class OfflineBookingStorage
             int actualTotalHours = Math.Max(1, (int)Math.Ceiling(totalHoursExact));
             
             decimal balanceAmount = totalAmount - paidAmount;
+            
+            // Save the full payment method name to balance_payment_method (same as payment_method)
+            string balancePaymentMethod = paymentMethod;
+            
             string updateQuery;
 
             if (isSynced == 0)
@@ -1129,6 +1209,7 @@ public static class OfflineBookingStorage
                         total_amount = @total_amount,
                         balance_amount = @balance_amount,
                         payment_method = @payment_method,
+                        balance_payment_method = @balance_payment_method,
                         out_time = @out_time,
                         updated_at = @updated_at,
                         closed_by = @closed_by
@@ -1145,6 +1226,7 @@ public static class OfflineBookingStorage
                         total_amount = @total_amount,
                         balance_amount = @balance_amount,
                         payment_method = @payment_method,
+                        balance_payment_method = @balance_payment_method,
                         out_time = @out_time,
                         updated_at = @updated_at,
                         IsSynced = 2,
@@ -1164,6 +1246,7 @@ public static class OfflineBookingStorage
                 updateCmd.Parameters.AddWithValue("@total_amount", totalAmount);
                 updateCmd.Parameters.AddWithValue("@balance_amount", balanceAmount);
                 updateCmd.Parameters.AddWithValue("@payment_method", paymentMethod);
+                updateCmd.Parameters.AddWithValue("@balance_payment_method", balancePaymentMethod);
                 
                 // Get current worker name for closed_by
                 string closedByWorker = LocalStorage.GetItem("username") ?? "Unknown";
@@ -1176,6 +1259,76 @@ public static class OfflineBookingStorage
                 if (rowsAffected > 0)
                 {
                     Logger.Log($"Booking {bookingId} completed with payment: {paymentMethod}, Total: ₹{totalAmount}, Balance: ₹{balanceAmount}, IsSynced: {isSynced}");
+                    
+                    // Update worker summary with balance payment if balance was paid
+                    if (paidAmount > 0)
+                    {
+                        // Get booking details to extract worker_id, booking_type, and calculate paid balance and extra charges
+                        string getBookingQuery = "SELECT worker_id, booking_type, paid_amount AS initial_paid, total_amount AS initial_total FROM Bookings WHERE booking_id = @id";
+                        using (var getBookingCmd = new SqliteCommand(getBookingQuery, connection))
+                        {
+                            getBookingCmd.Parameters.AddWithValue("@id", bookingId);
+                            using var bookingReader = await getBookingCmd.ExecuteReaderAsync();
+                            
+                            if (await bookingReader.ReadAsync())
+                            {
+                                string? workerId = bookingReader["worker_id"]?.ToString();
+                                string? bookingType = bookingReader["booking_type"]?.ToString();
+                                decimal initialPaid = Convert.ToDecimal(bookingReader["initial_paid"]);
+                                decimal initialTotal = Convert.ToDecimal(bookingReader["initial_total"]);
+                                
+                                if (!string.IsNullOrEmpty(workerId))
+                                {
+                                    string adminId = LocalStorage.GetItem("adminId") ?? "";
+                                    
+                                    // Calculate the balance that was just paid
+                                    decimal balancePaid = paidAmount - initialPaid;
+                                    
+                                    // Calculate extra charges (difference between final total and initial total)
+                                    decimal calculatedExtraCharges = totalAmount - initialTotal;
+                                    
+                                    if (balancePaid > 0)
+                                    {
+                                        // Update sitting/sleeping totals based on booking type
+                                        int sNo = GetOrCreateActiveWorkerSummary(workerId, adminId);
+                                        if (sNo != -1)
+                                        {
+                                            bool isSitting = bookingType?.ToLower() == "sitting";
+                                            bool isSleeping = bookingType?.ToLower() == "sleeper";
+                                            bool isCash = paymentMethod?.ToLower() == "cash";
+                                            bool isUpi = paymentMethod?.ToLower() == "upi" || paymentMethod?.ToLower() == "online";
+                                            
+                                            string balanceUpdateQuery = @"
+                                                UPDATE workers_summary
+                                                SET
+                                                    sitting_booking_total_amount = sitting_booking_total_amount + @sitting_amount,
+                                                    sleeping_total_amount = sleeping_total_amount + @sleeping_amount,
+                                                    in_cash_collect = in_cash_collect + @cash_amount,
+                                                    in_upi_collect = in_upi_collect + @upi_amount,
+                                                    total_balance = total_balance - @balance_paid,
+                                                    extra_charges = extra_charges + @extra_charges,
+                                                    last_updated_timestamp = @updated_time,
+                                                    is_synced = 0
+                                                WHERE s_no = @s_no";
+                                            
+                                            using var balanceUpdateCmd = new SqliteCommand(balanceUpdateQuery, connection);
+                                            balanceUpdateCmd.Parameters.AddWithValue("@sitting_amount", isSitting ? balancePaid : 0);
+                                            balanceUpdateCmd.Parameters.AddWithValue("@sleeping_amount", isSleeping ? balancePaid : 0);
+                                            balanceUpdateCmd.Parameters.AddWithValue("@cash_amount", isCash ? balancePaid : 0);
+                                            balanceUpdateCmd.Parameters.AddWithValue("@upi_amount", isUpi ? balancePaid : 0);
+                                            balanceUpdateCmd.Parameters.AddWithValue("@balance_paid", balancePaid);
+                                            balanceUpdateCmd.Parameters.AddWithValue("@extra_charges", calculatedExtraCharges);
+                                            balanceUpdateCmd.Parameters.AddWithValue("@updated_time", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                                            balanceUpdateCmd.Parameters.AddWithValue("@s_no", sNo);
+                                            
+                                            await balanceUpdateCmd.ExecuteNonQueryAsync();
+                                            Logger.Log($"Worker summary updated with balance payment: ₹{balancePaid}, extra charges: ₹{calculatedExtraCharges}, method: {paymentMethod}");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     
                     // If online and booking was previously synced, immediately sync the update
                     if (isSynced == 1 && NetworkInterface.GetIsNetworkAvailable())
@@ -1823,7 +1976,9 @@ public static class OfflineBookingStorage
                     AdvancePaymentEnabled = reader["advance_payment_enabled"] != DBNull.Value && Convert.ToInt32(reader["advance_payment_enabled"]) == 1,
                     DefaultAdvancePercentage = reader["default_advance_percentage"] != DBNull.Value ? Convert.ToDecimal(reader["default_advance_percentage"]) : 0m,
                     LastSynced = DateTime.TryParse(reader["last_synced"]?.ToString(), out var date) 
-                        ? date : DateTime.MinValue
+                        ? date : DateTime.MinValue,
+                    GraceTimeType1 = reader["grace_time_type_1"] != DBNull.Value ? Convert.ToInt32(reader["grace_time_type_1"]) : 25,
+                    GraceTimeType2 = reader["grace_time_type_2"] != DBNull.Value ? Convert.ToInt32(reader["grace_time_type_2"]) : 25
                 };
 
                 // Double-check if this setting is still valid (within 8 hours)
@@ -1847,6 +2002,12 @@ public static class OfflineBookingStorage
             Logger.LogError(ex);
             return null;
         }
+    }
+
+    // Alias for GetSettings - for backward compatibility
+    public static Settings? GetWorkerSettings()
+    {
+        return GetSettings();
     }
 
     public static List<BookingType> GetBookingTypes()
@@ -2031,11 +2192,259 @@ public static class OfflineBookingStorage
         }
     }
 
-    // ===== Worker Balance Update Methods =====
+    // ===== Worker Summary Update Methods =====
 
     /// <summary>
-    /// Update worker balance - online first, offline fallback
+    /// Initialize or get active worker summary session
     /// </summary>
+    public static int GetOrCreateActiveWorkerSummary(string workerId, string adminId)
+    {
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+
+            // Check if active session exists
+            string selectQuery = "SELECT s_no FROM workers_summary WHERE worker_id = @worker_id AND admin_id = @admin_id AND status = 'active' LIMIT 1";
+            
+            using (var selectCmd = new SqliteCommand(selectQuery, connection))
+            {
+                selectCmd.Parameters.AddWithValue("@worker_id", workerId);
+                selectCmd.Parameters.AddWithValue("@admin_id", adminId);
+                
+                var result = selectCmd.ExecuteScalar();
+                if (result != null)
+                {
+                    return Convert.ToInt32(result);
+                }
+            }
+
+            // Create new active session
+            string insertQuery = @"
+                INSERT INTO workers_summary (
+                    admin_id, worker_id,
+                    total_booking, total_person,
+                    sitting_booking_count, sleeping_booking_count,
+                    sitting_booking_total_amount, sleeping_total_amount,
+                    in_cash_collect, in_upi_collect,
+                    total_balance,
+                    login_time, created_time, last_updated_timestamp,
+                    status, is_synced
+                ) VALUES (
+                    @admin_id, @worker_id,
+                    0, 0,
+                    0, 0,
+                    0, 0,
+                    0, 0,
+                    0,
+                    @login_time, @created_time, @updated_time,
+                    'active', 0
+                )";
+
+            using (var insertCmd = new SqliteCommand(insertQuery, connection))
+            {
+                var now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                insertCmd.Parameters.AddWithValue("@admin_id", adminId);
+                insertCmd.Parameters.AddWithValue("@worker_id", workerId);
+                insertCmd.Parameters.AddWithValue("@login_time", now);
+                insertCmd.Parameters.AddWithValue("@created_time", now);
+                insertCmd.Parameters.AddWithValue("@updated_time", now);
+                insertCmd.ExecuteNonQuery();
+            }
+
+            // Get the newly created s_no
+            string getIdQuery = "SELECT last_insert_rowid()";
+            using (var getIdCmd = new SqliteCommand(getIdQuery, connection))
+            {
+                return Convert.ToInt32(getIdCmd.ExecuteScalar());
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+            return -1;
+        }
+    }
+
+    /// <summary>
+    /// Update worker summary when a booking is created
+    /// </summary>
+    public static void UpdateWorkerSummaryOnBooking(string workerId, string adminId, Booking1 booking)
+    {
+        try
+        {
+            int sNo = GetOrCreateActiveWorkerSummary(workerId, adminId);
+            if (sNo == -1) return;
+
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+
+            // Determine booking type
+            bool isSitting = booking.booking_type?.ToLower() == "sitting";
+            bool isSleeping = booking.booking_type?.ToLower() == "sleeper";
+
+            // Determine payment method
+            bool isCash = booking.payment_method?.ToLower() == "cash";
+            bool isUpi = booking.payment_method?.ToLower() == "upi" || booking.payment_method?.ToLower() == "online";
+
+            string updateQuery = @"
+                UPDATE workers_summary
+                SET
+                    total_booking = total_booking + 1,
+                    total_person = total_person + @persons,
+                    sitting_booking_count = sitting_booking_count + @sitting_count,
+                    sleeping_booking_count = sleeping_booking_count + @sleeping_count,
+                    sitting_booking_total_amount = sitting_booking_total_amount + @sitting_amount,
+                    sleeping_total_amount = sleeping_total_amount + @sleeping_amount,
+                    in_cash_collect = in_cash_collect + @cash_amount,
+                    in_upi_collect = in_upi_collect + @upi_amount,
+                    total_balance = total_balance + @balance_amount,
+                    last_updated_timestamp = @updated_time,
+                    is_synced = 0
+                WHERE s_no = @s_no";
+
+            using var updateCmd = new SqliteCommand(updateQuery, connection);
+            updateCmd.Parameters.AddWithValue("@persons", booking.number_of_persons);
+            updateCmd.Parameters.AddWithValue("@sitting_count", isSitting ? 1 : 0);
+            updateCmd.Parameters.AddWithValue("@sleeping_count", isSleeping ? 1 : 0);
+            updateCmd.Parameters.AddWithValue("@sitting_amount", isSitting ? booking.total_amount : 0);
+            updateCmd.Parameters.AddWithValue("@sleeping_amount", isSleeping ? booking.total_amount : 0);
+            updateCmd.Parameters.AddWithValue("@cash_amount", isCash ? booking.paid_amount : 0);
+            updateCmd.Parameters.AddWithValue("@upi_amount", isUpi ? booking.paid_amount : 0);
+            updateCmd.Parameters.AddWithValue("@balance_amount", booking.balance_amount);
+            updateCmd.Parameters.AddWithValue("@updated_time", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            updateCmd.Parameters.AddWithValue("@s_no", sNo);
+
+            updateCmd.ExecuteNonQuery();
+            Logger.Log($"Worker summary updated: s_no={sNo}, booking_id={booking.booking_id}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+        }
+    }
+
+    /// <summary>
+    /// Update worker summary when balance payment is made
+    /// </summary>
+    public static void UpdateWorkerSummaryOnBalancePayment(string workerId, string adminId, decimal paidAmount, string paymentMethod, decimal remainingBalance)
+    {
+        try
+        {
+            int sNo = GetOrCreateActiveWorkerSummary(workerId, adminId);
+            if (sNo == -1) return;
+
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+
+            bool isCash = paymentMethod?.ToLower() == "cash";
+            bool isUpi = paymentMethod?.ToLower() == "upi" || paymentMethod?.ToLower() == "online";
+
+            string updateQuery = @"
+                UPDATE workers_summary
+                SET
+                    in_cash_collect = in_cash_collect + @cash_amount,
+                    in_upi_collect = in_upi_collect + @upi_amount,
+                    total_balance = @remaining_balance,
+                    last_updated_timestamp = @updated_time,
+                    is_synced = 0
+                WHERE s_no = @s_no";
+
+            using var updateCmd = new SqliteCommand(updateQuery, connection);
+            updateCmd.Parameters.AddWithValue("@cash_amount", isCash ? paidAmount : 0);
+            updateCmd.Parameters.AddWithValue("@upi_amount", isUpi ? paidAmount : 0);
+            updateCmd.Parameters.AddWithValue("@remaining_balance", remainingBalance);
+            updateCmd.Parameters.AddWithValue("@updated_time", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            updateCmd.Parameters.AddWithValue("@s_no", sNo);
+
+            updateCmd.ExecuteNonQuery();
+            Logger.Log($"Worker summary balance payment updated: s_no={sNo}, paid={paidAmount}, method={paymentMethod}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+        }
+    }
+
+    /// <summary>
+    /// Close active worker session (mark as completed)
+    /// </summary>
+    public static bool CloseWorkerSession(string workerId, string adminId)
+    {
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+
+            string updateQuery = @"
+                UPDATE workers_summary
+                SET
+                    status = 'completed',
+                    total_balance = 0,
+                    closed_time = @closed_time,
+                    last_updated_timestamp = @updated_time,
+                    is_synced = 0
+                WHERE worker_id = @worker_id 
+                  AND admin_id = @admin_id 
+                  AND status = 'active'";
+
+            using var updateCmd = new SqliteCommand(updateQuery, connection);
+            var now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            updateCmd.Parameters.AddWithValue("@closed_time", now);
+            updateCmd.Parameters.AddWithValue("@updated_time", now);
+            updateCmd.Parameters.AddWithValue("@worker_id", workerId);
+            updateCmd.Parameters.AddWithValue("@admin_id", adminId);
+
+            int rowsAffected = updateCmd.ExecuteNonQuery();
+            Logger.Log($"Worker session closed: worker={workerId}, rows={rowsAffected}");
+            return rowsAffected > 0;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Get active worker summary data
+    /// </summary>
+    public static WorkerSummaryRecord? GetActiveWorkerSummary(string workerId, string adminId)
+    {
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+
+            string query = @"
+                SELECT * FROM workers_summary 
+                WHERE worker_id = @worker_id 
+                  AND admin_id = @admin_id 
+                  AND status = 'active' 
+                LIMIT 1";
+
+            using var cmd = new SqliteCommand(query, connection);
+            cmd.Parameters.AddWithValue("@worker_id", workerId);
+            cmd.Parameters.AddWithValue("@admin_id", adminId);
+
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                return MapWorkerSummaryFromReader(reader);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Update worker balance - DEPRECATED, kept for backward compatibility
+    /// </summary>
+    [Obsolete("Use UpdateWorkerSummaryOnBooking instead")]
     public static async Task<bool> UpdateWorkerBalanceAsync(string workerId, string adminId, decimal balanceAmount)
     {
         // Check if network is available
@@ -2182,60 +2591,74 @@ public static class OfflineBookingStorage
     }
 
     /// <summary>
-    /// Sync pending worker balance updates to server
+    /// Sync pending worker summaries to server
     /// </summary>
-    public static async Task<int> SyncWorkerBalancesAsync()
+    public static async Task<int> SyncWorkerSummariesAsync()
     {
         int successCount = 0;
 
         try
         {
-            // Get all unsynced balance updates
-            var pendingBalances = GetPendingWorkerBalances();
+            // Get all unsynced completed summaries
+            var pendingSummaries = GetPendingWorkerSummaries();
 
-            if (pendingBalances.Count == 0)
+            if (pendingSummaries.Count == 0)
             {
-                Logger.Log("No pending worker balance updates to sync");
+                Logger.Log("No pending worker summaries to sync");
                 return 0;
             }
 
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 
-            foreach (var balance in pendingBalances)
+            foreach (var summary in pendingSummaries)
             {
                 try
                 {
-                    var balanceData = new
+                    var summaryData = new
                     {
-                        worker_id = balance.WorkerId,
-                        admin_id = balance.AdminId,
-                        amount = balance.BalanceAmount
+                        admin_id = summary.AdminId,
+                        worker_id = summary.WorkerId,
+                        total_booking = summary.TotalBooking,
+                        total_person = summary.TotalPerson,
+                        sitting_booking_count = summary.SittingBookingCount,
+                        sleeping_booking_count = summary.SleepingBookingCount,
+                        sitting_booking_total_amount = summary.SittingBookingTotalAmount,
+                        sleeping_total_amount = summary.SleepingTotalAmount,
+                        in_cash_collect = summary.InCashCollect,
+                        in_upi_collect = summary.InUpiCollect,
+                        total_balance = summary.TotalBalance,
+                        login_time = summary.LoginTime,
+                        created_time = summary.CreatedTime,
+                        closed_time = summary.ClosedTime,
+                        status = summary.Status,
+                        is_synced = 0
                     };
 
-                    var json = JsonConvert.SerializeObject(balanceData);
+                    var json = JsonConvert.SerializeObject(summaryData);
                     var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                    var response = await client.PutAsync("https://railway-api-worker.artechnology.pro/api/Booking/update-worker-balance", content);
+                    var response = await client.PostAsync("https://railway-api-worker.artechnology.pro/api/worker-summary/sync", content);
 
                     if (response.IsSuccessStatusCode)
                     {
                         // Mark as synced
-                        MarkWorkerBalanceAsSynced(balance.Id);
+                        MarkWorkerSummaryAsSynced(summary.SNo);
                         successCount++;
-                        Logger.Log($"Synced worker balance: ID={balance.Id}, Worker={balance.WorkerId}, Amount={balance.BalanceAmount}");
+                        Logger.Log($"Synced worker summary: s_no={summary.SNo}, Worker={summary.WorkerId}, Bookings={summary.TotalBooking}");
                     }
                     else
                     {
-                        Logger.Log($"Failed to sync worker balance ID={balance.Id}: {response.StatusCode}");
+                        string errorBody = await response.Content.ReadAsStringAsync();
+                        Logger.Log($"Failed to sync worker summary s_no={summary.SNo}: {response.StatusCode} - {errorBody}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log($"Error syncing worker balance ID={balance.Id}: {ex.Message}");
+                    Logger.Log($"Error syncing worker summary s_no={summary.SNo}: {ex.Message}");
                 }
             }
 
-            Logger.Log($"Worker balance sync completed: {successCount}/{pendingBalances.Count} successful");
+            Logger.Log($"Worker summary sync completed: {successCount}/{pendingSummaries.Count} successful");
         }
         catch (Exception ex)
         {
@@ -2246,32 +2669,25 @@ public static class OfflineBookingStorage
     }
 
     /// <summary>
-    /// Get all pending (unsynced) worker balance updates
+    /// Get all pending (unsynced) worker summaries
     /// </summary>
-    private static List<WorkerBalanceRecord> GetPendingWorkerBalances()
+    private static List<WorkerSummaryRecord> GetPendingWorkerSummaries()
     {
-        var balances = new List<WorkerBalanceRecord>();
+        var summaries = new List<WorkerSummaryRecord>();
 
         try
         {
             using var connection = new SqliteConnection($"Data Source={DbPath}");
             connection.Open();
 
-            string query = "SELECT id, admin_id, worker_id, balance_amount, created_at FROM worker_balance WHERE is_synced = 0";
+            string query = "SELECT * FROM workers_summary WHERE status = 'completed' AND is_synced = 0";
 
             using var cmd = new SqliteCommand(query, connection);
             using var reader = cmd.ExecuteReader();
 
             while (reader.Read())
             {
-                balances.Add(new WorkerBalanceRecord
-                {
-                    Id = Convert.ToInt32(reader["id"]),
-                    AdminId = reader["admin_id"]?.ToString() ?? "",
-                    WorkerId = reader["worker_id"]?.ToString() ?? "",
-                    BalanceAmount = Convert.ToDecimal(reader["balance_amount"]),
-                    CreatedAt = reader["created_at"]?.ToString() ?? ""
-                });
+                summaries.Add(MapWorkerSummaryFromReader(reader));
             }
         }
         catch (Exception ex)
@@ -2279,23 +2695,52 @@ public static class OfflineBookingStorage
             Logger.LogError(ex);
         }
 
-        return balances;
+        return summaries;
     }
 
     /// <summary>
-    /// Mark a worker balance record as synced
+    /// Map database reader to WorkerSummaryRecord
     /// </summary>
-    private static void MarkWorkerBalanceAsSynced(int id)
+    private static WorkerSummaryRecord MapWorkerSummaryFromReader(SqliteDataReader reader)
+    {
+        return new WorkerSummaryRecord
+        {
+            SNo = Convert.ToInt32(reader["s_no"]),
+            AdminId = reader["admin_id"]?.ToString() ?? "",
+            WorkerId = reader["worker_id"]?.ToString() ?? "",
+            TotalBooking = reader["total_booking"] != DBNull.Value ? Convert.ToInt32(reader["total_booking"]) : 0,
+            TotalPerson = reader["total_person"] != DBNull.Value ? Convert.ToInt32(reader["total_person"]) : 0,
+            SittingBookingCount = reader["sitting_booking_count"] != DBNull.Value ? Convert.ToInt32(reader["sitting_booking_count"]) : 0,
+            SleepingBookingCount = reader["sleeping_booking_count"] != DBNull.Value ? Convert.ToInt32(reader["sleeping_booking_count"]) : 0,
+            SittingBookingTotalAmount = reader["sitting_booking_total_amount"] != DBNull.Value ? Convert.ToDecimal(reader["sitting_booking_total_amount"]) : 0,
+            SleepingTotalAmount = reader["sleeping_total_amount"] != DBNull.Value ? Convert.ToDecimal(reader["sleeping_total_amount"]) : 0,
+            InCashCollect = reader["in_cash_collect"] != DBNull.Value ? Convert.ToDecimal(reader["in_cash_collect"]) : 0,
+            InUpiCollect = reader["in_upi_collect"] != DBNull.Value ? Convert.ToDecimal(reader["in_upi_collect"]) : 0,
+            TotalBalance = reader["total_balance"] != DBNull.Value ? Convert.ToDecimal(reader["total_balance"]) : 0,
+            ExtraCharges = reader["extra_charges"] != DBNull.Value ? Convert.ToDecimal(reader["extra_charges"]) : 0,
+            LoginTime = reader["login_time"]?.ToString() ?? "",
+            CreatedTime = reader["created_time"]?.ToString() ?? "",
+            ClosedTime = reader["closed_time"]?.ToString(),
+            LastUpdatedTimestamp = reader["last_updated_timestamp"]?.ToString(),
+            Status = reader["status"]?.ToString() ?? "active",
+            IsSynced = reader["is_synced"] != DBNull.Value ? Convert.ToInt32(reader["is_synced"]) : 0
+        };
+    }
+
+    /// <summary>
+    /// Mark a worker summary record as synced
+    /// </summary>
+    private static void MarkWorkerSummaryAsSynced(int sNo)
     {
         try
         {
             using var connection = new SqliteConnection($"Data Source={DbPath}");
             connection.Open();
 
-            string update = "UPDATE worker_balance SET is_synced = 1 WHERE id = @id";
+            string update = "UPDATE workers_summary SET is_synced = 1 WHERE s_no = @s_no";
 
             using var cmd = new SqliteCommand(update, connection);
-            cmd.Parameters.AddWithValue("@id", id);
+            cmd.Parameters.AddWithValue("@s_no", sNo);
 
             cmd.ExecuteNonQuery();
         }
@@ -2304,14 +2749,94 @@ public static class OfflineBookingStorage
             Logger.LogError(ex);
         }
     }
+
+    /// <summary>
+    /// Get aggregated worker summary for a specific worker and date range
+    /// </summary>
+    public static WorkerSummaryRecord? GetAggregatedWorkerSummary(string workerId, DateTime fromDate, DateTime toDate)
+    {
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+
+            string query = @"
+                SELECT 
+                    @worker_id as worker_id,
+                    '' as admin_id,
+                    SUM(total_booking) as total_booking,
+                    SUM(total_person) as total_person,
+                    SUM(sitting_booking_count) as sitting_booking_count,
+                    SUM(sleeping_booking_count) as sleeping_booking_count,
+                    SUM(sitting_booking_total_amount) as sitting_booking_total_amount,
+                    SUM(sleeping_total_amount) as sleeping_total_amount,
+                    SUM(in_cash_collect) as in_cash_collect,
+                    SUM(in_upi_collect) as in_upi_collect,
+                    SUM(total_balance) as total_balance,
+                    MIN(login_time) as login_time,
+                    MIN(created_time) as created_time,
+                    MAX(closed_time) as closed_time,
+                    MAX(last_updated_timestamp) as last_updated_timestamp,
+                    'completed' as status,
+                    0 as s_no,
+                    0 as is_synced
+                FROM workers_summary
+                WHERE worker_id = @worker_id
+                  AND datetime(created_time) >= datetime(@from_date)
+                  AND datetime(created_time) <= datetime(@to_date)";
+
+            using var cmd = new SqliteCommand(query, connection);
+            cmd.Parameters.AddWithValue("@worker_id", workerId);
+            cmd.Parameters.AddWithValue("@from_date", fromDate.ToString("yyyy-MM-dd HH:mm:ss"));
+            cmd.Parameters.AddWithValue("@to_date", toDate.ToString("yyyy-MM-dd HH:mm:ss"));
+
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                // Check if there's actually data
+                if (reader["total_booking"] == DBNull.Value || Convert.ToInt32(reader["total_booking"]) == 0)
+                {
+                    return null;
+                }
+                return MapWorkerSummaryFromReader(reader);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+        }
+
+        return null;
+    }
 }
 
-// Worker Balance Record Model
-public class WorkerBalanceRecord
+// Worker Summary Record Model
+public class WorkerSummaryRecord
 {
-    public int Id { get; set; }
+    public int SNo { get; set; }
     public string AdminId { get; set; } = string.Empty;
     public string WorkerId { get; set; } = string.Empty;
-    public decimal BalanceAmount { get; set; }
-    public string CreatedAt { get; set; } = string.Empty;
+    
+    public int TotalBooking { get; set; }
+    public int TotalPerson { get; set; }
+    
+    public int SittingBookingCount { get; set; }
+    public int SleepingBookingCount { get; set; }
+    
+    public decimal SittingBookingTotalAmount { get; set; }
+    public decimal SleepingTotalAmount { get; set; }
+    
+    public decimal InCashCollect { get; set; }
+    public decimal InUpiCollect { get; set; }
+    
+    public decimal TotalBalance { get; set; }
+    public decimal ExtraCharges { get; set; }
+    
+    public string LoginTime { get; set; } = string.Empty;
+    public string CreatedTime { get; set; } = string.Empty;
+    public string? ClosedTime { get; set; }
+    public string? LastUpdatedTimestamp { get; set; }
+    
+    public string Status { get; set; } = "active";
+    public int IsSynced { get; set; }
 }

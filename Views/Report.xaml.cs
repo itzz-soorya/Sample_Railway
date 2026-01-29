@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -17,6 +18,7 @@ namespace UserModule
     {
         private List<Booking1> allBookings = new List<Booking1>();
         private List<Booking1> filteredBookings = new List<Booking1>();
+        private WorkerSummaryRecord? currentSummary = null;
         private string searchText = "";
         private int currentPage = 1;
         private const int pageSize = 20;
@@ -26,19 +28,75 @@ namespace UserModule
         {
             InitializeComponent();
             
-            // Set default date range (last 30 days)
+            // Set default to today (show active session only)
             ToDatePicker.SelectedDate = DateTime.Now;
-            FromDatePicker.SelectedDate = DateTime.Now.AddDays(-30);
+            FromDatePicker.SelectedDate = DateTime.Now;
             
-            // Load data
-            LoadReportData();
+            // Load data with server sync
+            LoadReportDataWithSync();
+        }
+
+        private async void LoadReportDataWithSync()
+        {
+            try
+            {
+                // Get current worker ID
+                string currentWorkerId = LocalStorage.GetItem("workerId") ?? "";
+                
+                if (string.IsNullOrEmpty(currentWorkerId))
+                {
+                    ClearReport();
+                    return;
+                }
+
+                // Sync completed bookings from server first
+                try
+                {
+                    string syncResult = await OfflineBookingStorage.SyncCompletedBookingsFromServerAsync(currentWorkerId);
+                    Logger.Log($"Server sync result: {syncResult}");
+                }
+                catch (Exception syncEx)
+                {
+                    Logger.LogError(syncEx);
+                    Logger.Log("Server sync failed, loading local data only");
+                }
+
+                // Load data from local database
+                LoadReportData();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                MessageBox.Show("Failed to load report data.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void LoadReportData()
         {
             try
             {
-                // Get all bookings from local database
+                // Get current worker ID and admin ID
+                string currentWorkerId = LocalStorage.GetItem("workerId") ?? "";
+                string adminId = LocalStorage.GetItem("adminId") ?? "";
+                
+                if (string.IsNullOrEmpty(currentWorkerId))
+                {
+                    ClearReport();
+                    return;
+                }
+
+                // Load active worker summary first (for current session stats)
+                currentSummary = OfflineBookingStorage.GetActiveWorkerSummary(currentWorkerId, adminId);
+                
+                // Only show report if there's an active session
+                if (currentSummary == null)
+                {
+                    // No active session - clear the report
+                    ClearReport();
+                    return;
+                }
+                
+                // Get all bookings from local database (for detail view)
                 allBookings = OfflineBookingStorage.GetBasicBookings();
                 
                 if (allBookings != null && allBookings.Any())
@@ -48,8 +106,8 @@ namespace UserModule
                 }
                 else
                 {
-                    // No data available
-                    ClearReport();
+                    // No bookings but active session exists - show summary
+                    UpdateAllStatistics();
                 }
             }
             catch (Exception ex)
@@ -71,6 +129,33 @@ namespace UserModule
             // Get current logged-in worker info
             string currentWorkerId = LocalStorage.GetItem("workerId") ?? "";
             string currentUsername = LocalStorage.GetItem("username") ?? "";
+            string adminId = LocalStorage.GetItem("adminId") ?? "";
+
+            // Determine if showing current day only (active session)
+            bool isToday = toDate.Date == DateTime.Now.Date && fromDate.Date == DateTime.Now.Date;
+            
+            if (isToday)
+            {
+                // Show only active session data for today
+                currentSummary = OfflineBookingStorage.GetActiveWorkerSummary(currentWorkerId, adminId);
+                Logger.Log("Showing active session data for today");
+            }
+            else
+            {
+                // For date range filtering, use aggregated summary
+                currentSummary = OfflineBookingStorage.GetAggregatedWorkerSummary(currentWorkerId, fromDate, toDate);
+                
+                // If no aggregated data for range, show active session
+                if (currentSummary == null)
+                {
+                    currentSummary = OfflineBookingStorage.GetActiveWorkerSummary(currentWorkerId, adminId);
+                    Logger.Log("No aggregated data found, showing active session");
+                }
+                else
+                {
+                    Logger.Log($"Showing aggregated data from {fromDate:yyyy-MM-dd} to {toDate:yyyy-MM-dd}");
+                }
+            }
 
             // Filter bookings by:
             // 1. Date range and completed status
@@ -89,15 +174,22 @@ namespace UserModule
             currentPage = 1;
 
             // Update all statistics
-            UpdateSummaryCards();
-            UpdateBookingTypeBreakdown();
-            UpdateStatusBreakdown();
-            UpdatePaymentMethodBreakdown();
+            UpdateAllStatistics();
             UpdateDataGrid();
         }
 
         private void UpdateSummaryCards()
         {
+            // Use worker_summary data if available, fallback to booking calculation
+            if (currentSummary != null)
+            {
+                txtTotalBookings.Text = currentSummary.TotalBooking.ToString();
+                decimal summaryRevenue = currentSummary.SittingBookingTotalAmount + currentSummary.SleepingTotalAmount;
+                txtTotalRevenue.Text = $"₹{summaryRevenue:N0}";
+                return;
+            }
+
+            // Fallback: Calculate from bookings
             if (filteredBookings == null || !filteredBookings.Any())
             {
                 txtTotalBookings.Text = "0";
@@ -105,6 +197,14 @@ namespace UserModule
                 return;
             }
 
+            // Only show data if session is active
+            if (currentSummary == null || currentSummary.Status != "active")
+            {
+                txtTotalBookings.Text = "0";
+                txtTotalRevenue.Text = "₹0";
+                return;
+            }
+            
             // Calculate totals
             int totalBookings = filteredBookings.Count;
             decimal totalRevenue = filteredBookings.Sum(b => b.total_amount);
@@ -114,8 +214,27 @@ namespace UserModule
             txtTotalRevenue.Text = $"₹{totalRevenue:N0}";
         }
 
+        private void UpdateAllStatistics()
+        {
+            UpdateSummaryCards();
+            UpdateBookingTypeBreakdown();
+            UpdateStatusBreakdown();
+            UpdatePaymentMethodBreakdown();
+        }
+
         private void UpdateBookingTypeBreakdown()
         {
+            // Use worker_summary data if available and session is active
+            if (currentSummary != null && currentSummary.Status == "active")
+            {
+                txtSittingCount.Text = currentSummary.SittingBookingCount.ToString();
+                txtSittingRevenue.Text = $"₹{currentSummary.SittingBookingTotalAmount:N0}";
+                txtSleeperCount.Text = currentSummary.SleepingBookingCount.ToString();
+                txtSleeperRevenue.Text = $"₹{currentSummary.SleepingTotalAmount:N0}";
+                return;
+            }
+
+            // Fallback: Calculate from bookings
             if (filteredBookings == null || !filteredBookings.Any())
             {
                 txtSittingCount.Text = "0";
@@ -151,7 +270,21 @@ namespace UserModule
 
         private void UpdateStatusBreakdown()
         {
-            if (filteredBookings == null || !filteredBookings.Any())
+            // Only show data if there's an active session (not closed/completed)
+            if (currentSummary == null || currentSummary.Status != "active")
+            {
+                txtActiveCount.Text = "0";
+                txtActiveAmount.Text = "₹0";
+                txtCompletedCount.Text = "0";
+                txtCompletedAmount.Text = "₹0";
+                return;
+            }
+            
+            // Get current worker's bookings
+            string currentWorkerId = LocalStorage.GetItem("workerId") ?? "";
+            string currentUsername = LocalStorage.GetItem("username") ?? "";
+            
+            if (string.IsNullOrEmpty(currentWorkerId) || allBookings == null || !allBookings.Any())
             {
                 txtActiveCount.Text = "0";
                 txtActiveAmount.Text = "₹0";
@@ -160,17 +293,26 @@ namespace UserModule
                 return;
             }
 
-            // Active bookings
-            var activeBookings = filteredBookings
-                .Where(b => "active".Equals(b.status, StringComparison.OrdinalIgnoreCase))
+            // Active bookings (any active booking by this worker)
+            var activeBookings = allBookings
+                .Where(b => "active".Equals(b.status, StringComparison.OrdinalIgnoreCase) &&
+                           (b.worker_id == currentWorkerId || b.closed_by == currentUsername))
                 .ToList();
             
             int activeCount = activeBookings.Count;
             decimal activeAmount = activeBookings.Sum(b => b.total_amount);
 
-            // Completed bookings
+            // Completed bookings - only show those from the current active session
+            DateTime sessionStartDate = DateTime.Today;
+            if (DateTime.TryParse(currentSummary.LoginTime, out DateTime parsedLoginTime))
+            {
+                sessionStartDate = parsedLoginTime.Date;
+            }
+            
             var completedBookings = filteredBookings
                 .Where(b => "completed".Equals(b.status, StringComparison.OrdinalIgnoreCase))
+                .Where(b => b.booking_date.Date >= sessionStartDate)
+                .Where(b => b.booked_by == currentUsername || b.closed_by == currentUsername)
                 .ToList();
             
             int completedCount = completedBookings.Count;
@@ -185,6 +327,16 @@ namespace UserModule
 
         private void UpdatePaymentMethodBreakdown()
         {
+            // Use worker_summary data if available and session is active
+            if (currentSummary != null && currentSummary.Status == "active")
+            {
+                txtPaymentCount.Text = currentSummary.TotalBooking.ToString();
+                txtCashAmount.Text = $"₹{currentSummary.InCashCollect:N0}";
+                txtOnlineAmount.Text = $"₹{currentSummary.InUpiCollect:N0}";
+                return;
+            }
+
+            // Fallback: Calculate from bookings
             if (filteredBookings == null || !filteredBookings.Any())
             {
                 txtPaymentCount.Text = "0";
@@ -370,6 +522,44 @@ namespace UserModule
             FromDatePicker.SelectedDate = new DateTime(now.Year, now.Month, 1);
             ToDatePicker.SelectedDate = now.Date;
             ApplyDateFilter();
+        }
+
+        private async void SyncData_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                btnSyncData.IsEnabled = false;
+                btnSyncData.Content = "⏳ Syncing...";
+
+                // Sync all worker summaries to server
+                int syncedCount = await OfflineBookingStorage.SyncWorkerSummariesAsync();
+
+                if (syncedCount > 0)
+                {
+                    MessageBox.Show($"Successfully synced {syncedCount} worker summary record(s) to server.", 
+                        "Sync Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                    Logger.Log($"Worker summaries synced: {syncedCount} records");
+                    
+                    // Refresh data
+                    LoadReportData();
+                }
+                else
+                {
+                    MessageBox.Show("No pending worker summaries to sync.", 
+                        "Sync Status", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                MessageBox.Show($"Error syncing data: {ex.Message}", 
+                    "Sync Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                btnSyncData.IsEnabled = true;
+                btnSyncData.Content = "🔄 Sync Data";
+            }
         }
 
         private void PrintReport_Click(object sender, RoutedEventArgs e)
@@ -661,7 +851,13 @@ namespace UserModule
                     
                     if (!string.IsNullOrWhiteSpace(paymentMethod))
                     {
-                        if (paymentMethod.Equals("Cash", StringComparison.OrdinalIgnoreCase))
+                        // Check if it's already an indicator (o or c)
+                        if (paymentMethod == "o")
+                            indicator = "(o)";
+                        else if (paymentMethod == "c")
+                            indicator = "(c)";
+                        // Otherwise check the full payment method name
+                        else if (paymentMethod.Equals("Cash", StringComparison.OrdinalIgnoreCase))
                             indicator = "(c)";
                         else if (paymentMethod.Equals("Online", StringComparison.OrdinalIgnoreCase) ||
                                  paymentMethod.Equals("UPI", StringComparison.OrdinalIgnoreCase) ||
@@ -669,8 +865,9 @@ namespace UserModule
                                  paymentMethod.Equals("GPay", StringComparison.OrdinalIgnoreCase) ||
                                  paymentMethod.Equals("PhonePe", StringComparison.OrdinalIgnoreCase) ||
                                  paymentMethod.Equals("Google Pay", StringComparison.OrdinalIgnoreCase) ||
+                                 paymentMethod.Equals("Paytm", StringComparison.OrdinalIgnoreCase) ||
                                  paymentMethod.Equals("Net Banking", StringComparison.OrdinalIgnoreCase))
-                            indicator = "(u)";
+                            indicator = "(o)";
                     }
                     
                     return $"{amount:N0} {indicator}";

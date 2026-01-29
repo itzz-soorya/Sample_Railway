@@ -246,6 +246,44 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
+                            
+                            <!-- Sync Button -->
+                            <Button Content="🔄 Sync Data" 
+                                    x:Name="btnSyncData" 
+                                    Click="SyncData_Click" 
+                                    Width="115" 
+                                    Height="35" 
+                                    Margin="15,0,0,0" 
+                                    Background="#10B981" 
+                                    BorderBrush="#10B981" 
+                                    BorderThickness="1" 
+                                    Foreground="White" 
+                                    FontSize="13" 
+                                    FontWeight="SemiBold" 
+                                    Cursor="Hand">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" 
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                            CornerRadius="6"
+                                                            Padding="12,8">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#059669"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -862,7 +900,7 @@
                                             <TextBlock.Text>
                                                 <MultiBinding Converter="{StaticResource PaymentDisplayConverter}">
                                                     <Binding Path="balance_amount"/>
-                                                    <Binding Path="payment_method"/>
+                                                    <Binding Path="balance_payment_method"/>
                                                 </MultiBinding>
                                             </TextBlock.Text>
                                         </TextBlock>

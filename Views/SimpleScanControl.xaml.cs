@@ -186,15 +186,72 @@ namespace UserModule
                 DateTime currentTime = DateTime.Now;
                 TimeSpan currentOutTime = currentTime.TimeOfDay;
                 
+                // Calculate actual time spent in minutes
+                DateTime inDateTime = booking.booking_date.Date + booking.in_time;
+                DateTime outDateTime = currentTime;
+                TimeSpan actualDuration = outDateTime - inDateTime;
+                int actualMinutes = (int)actualDuration.TotalMinutes;
+                
+                // Get grace time from settings
+                var settings = OfflineBookingStorage.GetWorkerSettings();
+                int graceMinutes = 25; // Default fallback
+                
+                // Check if this is Sleeper (pricing tier) or Sitting (hourly rate)
+                bool isSleeper = booking.booking_type?.Equals("Sleeper", StringComparison.OrdinalIgnoreCase) == true || 
+                               booking.booking_type?.Equals("Sleeping", StringComparison.OrdinalIgnoreCase) == true;
+                
+                if (settings != null)
+                {
+                    // Get grace time based on booking type
+                    if (isSleeper)
+                    {
+                        // Get sleeper grace time from settings
+                        graceMinutes = settings.GraceTimeType2;
+                    }
+                    else
+                    {
+                        // Get sitting grace time from settings
+                        graceMinutes = settings.GraceTimeType1;
+                    }
+                    
+                    Logger.Log($"Grace time applied: {graceMinutes} minutes for {booking.booking_type} (Sitting={settings.GraceTimeType1}, Sleeper={settings.GraceTimeType2})");
+                }
+                else
+                {
+                    Logger.Log($"No settings found, using default grace time: {graceMinutes} minutes");
+                }
+                
                 // Calculate actual hours from in_time to current out_time
                 int actualTotalHours = CalculateActualHours(booking.in_time, currentOutTime);
                 
                 // Get booked hours
                 int bookedHours = booking.total_hours;
                 
-                // Check if this is Sleeper (pricing tier) or Sitting (hourly rate)
-                bool isSleeper = booking.booking_type?.Equals("Sleeper", StringComparison.OrdinalIgnoreCase) == true || 
-                               booking.booking_type?.Equals("Sleeping", StringComparison.OrdinalIgnoreCase) == true;
+                Logger.Log($"Booking details: In={booking.in_time}, Out={currentOutTime}, Booked={bookedHours}hr, Actual={actualMinutes}min, Grace={graceMinutes}min");
+                
+                // Calculate booked time + grace period in minutes
+                int bookedMinutes = bookedHours * 60;
+                int allowedMinutes = bookedMinutes + graceMinutes;
+                
+                Logger.Log($"Calculation: BookedMin={bookedMinutes}, AllowedMin={allowedMinutes}, ActualMin={actualMinutes}");
+                
+                // Only charge extra if exceeded booked time + grace period
+                if (actualMinutes > allowedMinutes)
+                {
+                    // Calculate chargeable overtime minutes (after grace period)
+                    int overtimeMinutes = actualMinutes - allowedMinutes;
+                    // Round up to next hour for charging
+                    int chargeableExtraHours = (int)Math.Ceiling(overtimeMinutes / 60.0);
+                    actualTotalHours = bookedHours + chargeableExtraHours;
+                    
+                    Logger.Log($"Grace period exceeded. Actual: {actualMinutes}min, Allowed: {allowedMinutes}min, Charging: {chargeableExtraHours} extra hours");
+                }
+                else
+                {
+                    // Within grace period - no extra charges
+                    actualTotalHours = bookedHours;
+                    Logger.Log($"Within grace period. Actual: {actualMinutes}min, Allowed: {allowedMinutes}min");
+                }
                 
                 // Use the stored total_amount (which includes any discount applied during booking)
                 decimal baseAmount = booking.total_amount;
@@ -406,22 +463,8 @@ namespace UserModule
 
                 bool success = result.Contains("✅");
 
-                // If successful and there's a balance amount, update worker balance
-                if (success)
-                {
-                    decimal workerBalance = totalAmount - paidAmount;
-                    if (workerBalance > 0)
-                    {
-                        string? workerId = LocalStorage.GetItem("workerId");
-                        string? adminId = LocalStorage.GetItem("adminId");
-
-                        if (!string.IsNullOrEmpty(workerId) && !string.IsNullOrEmpty(adminId))
-                        {
-                            await OfflineBookingStorage.UpdateWorkerBalanceAsync(workerId, adminId, workerBalance);
-                            Logger.Log($"Worker balance updated: ₹{workerBalance} for worker {workerId}");
-                        }
-                    }
-                }
+                // Worker summary is automatically updated in CompleteBookingWithPaymentAsync
+                // No need for separate worker balance update
 
                 if (success)
                 {

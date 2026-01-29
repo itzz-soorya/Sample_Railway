@@ -100,7 +100,9 @@ namespace UserModule.Models
         public string? Type4 { get; set; }
         public decimal? Type4Amount { get; set; }
         public bool AdvancePaymentEnabled { get; set; }
-    public decimal DefaultAdvancePercentage { get; set; }
+        public decimal DefaultAdvancePercentage { get; set; }
         public DateTime LastSynced { get; set; }
+        public int GraceTimeType1 { get; set; } = 25;  // Grace time in minutes for Type 1 (Sitting)
+        public int GraceTimeType2 { get; set; } = 25;  // Grace time in minutes for Type 2 (Sleeper)
     }
 }

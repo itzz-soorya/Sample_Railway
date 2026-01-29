@@ -219,6 +219,16 @@ namespace UserModule
 
                 if (result == MessageBoxResult.Yes)
                 {
+                    // Close worker session (marks as completed and ready for sync)
+                    string? workerId = LocalStorage.GetItem("workerId");
+                    string? adminId = LocalStorage.GetItem("adminId");
+                    
+                    if (!string.IsNullOrEmpty(workerId) && !string.IsNullOrEmpty(adminId))
+                    {
+                        OfflineBookingStorage.CloseWorkerSession(workerId, adminId);
+                        Logger.Log($"Worker session closed for {workerId}");
+                    }
+                    
                     // Clear stored credentials from LocalStorage
                     LocalStorage.RemoveItem("username");
                     LocalStorage.RemoveItem("password");

@@ -1682,7 +1682,9 @@ namespace UserModule
                 string seatType = ((txtSeats.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "").Trim();
                 string proofType = ((cmbIdType.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "").ToLower().Trim();
                 string proofId = txtIdNumber.Text.Trim();
-                string paymentMethod = rbCash.IsChecked == true ? "cash" : "upi";
+                string paymentMethod = rbCash.IsChecked == true ? "Cash" : "UPI";
+                
+                Logger.Log($"Payment Method Selected: {paymentMethod} (rbCash.IsChecked={rbCash.IsChecked})");
 
                 int totalHours = 0;
                 var selectedHours = (txtHours.SelectedItem as ComboBoxItem)?.Content?.ToString();
@@ -1755,6 +1757,9 @@ namespace UserModule
 
                 // Use the new online-first save method
                 await OfflineBookingStorage.SaveBookingAsync(booking, showMessages: false);
+
+                // Worker summary is automatically updated inside SaveBookingAsync
+                // No need to update it again here
 
                 // Refresh Dashboard to update counts and show new booking
                 if (_dashboardInstance != null)

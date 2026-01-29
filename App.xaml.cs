@@ -28,14 +28,14 @@ namespace UserModule
         public App()
         {
             // Attach console window for debugging
-            //if (GetConsoleWindow() == IntPtr.Zero)
-            //{
-            //    AllocConsole();
-            //}
+            if (GetConsoleWindow() == IntPtr.Zero)
+            {
+                AllocConsole();
+            }
             
-            //Console.WriteLine("====================================");
-            //Console.WriteLine("    RAILAX - Console Logging Active");
-            //Console.WriteLine("====================================\n");
+            Console.WriteLine("====================================");
+            Console.WriteLine("    RAILAX - Console Logging Active");
+            Console.WriteLine("====================================\n");
             
             // Global exception handlers to prevent crashes
             this.DispatcherUnhandledException += App_DispatcherUnhandledException;
@@ -222,9 +222,13 @@ namespace UserModule
                 // Sync updated bookings (IsSynced = 2) - completed/payment updates
                 int updatedSynced = await OfflineBookingStorage.SyncUpdatedBookingsAsync(showMessages: showMessages);
                 
-                if (showMessages && (newSynced > 0 || updatedSynced > 0))
+                // Sync worker summaries (completed sessions)
+                int workerSummarySynced = await OfflineBookingStorage.SyncWorkerSummariesAsync();
+                
+                if (showMessages && (newSynced > 0 || updatedSynced > 0 || workerSummarySynced > 0))
                 {
-                    // ShowMessage($"✅ Offline data synced successfully!\n\nNew bookings: {newSynced}\nUpdated bookings: {updatedSynced}", 
+                    Logger.Log($"Sync complete: Bookings={newSynced}, Updates={updatedSynced}, Summaries={workerSummarySynced}");
+                    // ShowMessage($"✅ Offline data synced successfully!\n\nNew bookings: {newSynced}\nUpdated bookings: {updatedSynced}\nWorker summaries: {workerSummarySynced}", 
                     //     "Sync Complete", MessageBoxImage.Information);
                 }
             }

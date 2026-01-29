@@ -241,6 +241,12 @@ namespace UserModule
                         var hourlyPricingTiers = await OfflineBookingStorage.FetchType2DetailsAsync(adminId);
                         OfflineBookingStorage.SaveHourlyPricingTiers(adminId, hourlyPricingTiers);
 
+                        // Initialize worker session (creates active summary record)
+                        Console.WriteLine($"\n[Login] Calling GetOrCreateActiveWorkerSummary with workerId={workerId}, adminId={adminId}");
+                        int sessionId = OfflineBookingStorage.GetOrCreateActiveWorkerSummary(workerId, adminId);
+                        Logger.Log($"Worker session initialized for {workerId}, session s_no={sessionId}");
+                        Console.WriteLine($"[Login] Worker session initialized, s_no={sessionId}\n");
+
                         //Console.WriteLine("\n=== LOGIN SUCCESS ===");
                         //Console.WriteLine("Worker settings, printer details, and hourly pricing fetched and saved.");
                         //Console.WriteLine("====================================\n");

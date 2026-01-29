@@ -26,24 +26,22 @@ namespace UserModule
 
         public static void Log(string message)
         {
-            // Commented out - will use later
-            //try
-            //{
-            //    using (StreamWriter writer = new StreamWriter(logFilePath, true))
-            //    {
-            //        writer.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}");
-            //    }
-            //}
-            //catch (Exception )
-            //{
-            //    //Console.WriteLine("Error writing log: " + ex.Message);
-            //}
+            try
+            {
+                using (StreamWriter writer = new StreamWriter(logFilePath, true))
+                {
+                    writer.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}");
+                }
+            }
+            catch (Exception )
+            {
+                //Console.WriteLine("Error writing log: " + ex.Message);
+            }
         }
 
         public static void LogError(Exception ex)
         {
-            // Commented out - will use later
-            //Log($"ERROR: {ex.Message}\nSTACK TRACE: {ex.StackTrace}");
+            Log($"ERROR: {ex.Message}\nSTACK TRACE: {ex.StackTrace}");
         }
     }
 }
