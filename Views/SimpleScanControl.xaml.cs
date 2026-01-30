@@ -400,6 +400,16 @@ namespace UserModule
                         checkoutTime
                     );
 
+                    // Sync worker summaries to API (no balance to update since 0)
+                    string closingWorkerId = LocalStorage.GetItem("workerId") ?? "";
+                    string adminId = LocalStorage.GetItem("adminId") ?? "";
+                    
+                    if (!string.IsNullOrEmpty(closingWorkerId) && !string.IsNullOrEmpty(adminId))
+                    {
+                        await OfflineBookingStorage.SyncWorkerSummariesAsync();
+                        Logger.Log($"Worker summaries synced after completing booking with no balance");
+                    }
+
                     BookingConfirmationDialog.Show(
                         "Booking closed successfully!",
                         $"Booking ID: {currentBooking.booking_id}\n" +
@@ -464,8 +474,18 @@ namespace UserModule
 
                 bool success = result.Contains("✅");
 
-                // Worker summary is automatically updated in CompleteBookingWithPaymentAsync
-                // No need for separate worker balance update
+                // Update worker balance in API for the closing worker (balance collected)
+                if (success && balancePayment > 0)
+                {
+                    string closingWorkerId = LocalStorage.GetItem("workerId") ?? "";
+                    string adminId = LocalStorage.GetItem("adminId") ?? "";
+                    
+                    if (!string.IsNullOrEmpty(closingWorkerId) && !string.IsNullOrEmpty(adminId))
+                    {
+                        await OfflineBookingStorage.UpdateWorkerBalanceAsync(closingWorkerId, adminId, balancePayment);
+                        Logger.Log($"Worker balance API updated for {closingWorkerId}: +₹{balancePayment}");
+                    }
+                }
 
                 if (success)
                 {

@@ -131,51 +131,28 @@ namespace UserModule
                 if (TotalBookingsTextBox == null || TotalAmountTextBox == null)
                     return;
 
-                // Get current worker's active session from workers_summary
-                string? workerId = LocalStorage.GetItem("workerId");
-                string? adminId = LocalStorage.GetItem("adminId");
+                // Get the last balance reset timestamp
+                string? lastResetStr = LocalStorage.GetItem("lastBalanceResetTime");
+                DateTime? lastResetTime = null;
                 
-                int totalBookings = 0;
-                
-                if (!string.IsNullOrEmpty(workerId) && !string.IsNullOrEmpty(adminId))
+                if (!string.IsNullOrEmpty(lastResetStr) && DateTime.TryParse(lastResetStr, out DateTime parsedDate))
                 {
-                    // Get active session summary
-                    var activeSummary = OfflineBookingStorage.GetActiveWorkerSummary(workerId, adminId);
-                    
-                    if (activeSummary != null)
+                    lastResetTime = parsedDate;
+                }
+
+                // Count only bookings after the last reset
+                int totalBookings = 0;
+                if (allBookings != null && allBookings.Any())
+                {
+                    if (lastResetTime.HasValue)
                     {
-                        // Use total_booking from active session
-                        totalBookings = activeSummary.TotalBooking;
-                        Logger.Log($"Active session bookings: {totalBookings}");
+                        // Count bookings created after the last reset
+                        totalBookings = allBookings.Count(b => b.created_at.HasValue && b.created_at.Value > lastResetTime.Value);
                     }
                     else
                     {
-                        // No active session, show 0
-                        totalBookings = 0;
-                        Logger.Log("No active worker session found");
-                    }
-                }
-                else
-                {
-                    // Fallback: Count bookings after last reset (old logic)
-                    string? lastResetStr = LocalStorage.GetItem("lastBalanceResetTime");
-                    DateTime? lastResetTime = null;
-                    
-                    if (!string.IsNullOrEmpty(lastResetStr) && DateTime.TryParse(lastResetStr, out DateTime parsedDate))
-                    {
-                        lastResetTime = parsedDate;
-                    }
-
-                    if (allBookings != null && allBookings.Any())
-                    {
-                        if (lastResetTime.HasValue)
-                        {
-                            totalBookings = allBookings.Count(b => b.created_at.HasValue && b.created_at.Value > lastResetTime.Value);
-                        }
-                        else
-                        {
-                            totalBookings = allBookings.Count;
-                        }
+                        // No reset yet, count all bookings
+                        totalBookings = allBookings.Count;
                     }
                 }
 
@@ -223,37 +200,19 @@ namespace UserModule
                         decimal balance = balanceElement.GetDecimal();
                         TotalAmountTextBox.Text = $"Worker Balance: ₹{balance:F2}";
                         
-                        // If balance is 0 AND session has bookings, close the session (admin clicked close balance)
+                        // If balance is 0, reset the booking count by storing current timestamp
                         if (balance == 0)
                         {
-                            // Check if current session has any bookings before closing
-                            var activeSummary = OfflineBookingStorage.GetActiveWorkerSummary(workerId, adminId);
-                            Logger.Log($"Balance check: balance={balance}, activeSummary={(activeSummary != null ? "found" : "null")}, TotalBooking={activeSummary?.TotalBooking ?? -1}, Status={activeSummary?.Status ?? "null"}");
-                            
-                            if (activeSummary != null && activeSummary.TotalBooking > 0)
-                            {
-                                // Session has bookings and balance is 0 - admin closed balance
-                                Logger.Log($"Closing session: worker={workerId}, bookings={activeSummary.TotalBooking}");
-                                bool sessionClosed = OfflineBookingStorage.CloseWorkerSession(workerId, adminId);
-                                if (sessionClosed)
-                                {
-                                    Logger.Log($"Worker session closed for worker {workerId} - Admin closed balance");
-                                    UpdateTotalsFromBookings();
-                                }
-                                else
-                                {
-                                    Logger.Log($"Failed to close session for worker {workerId}");
-                                }
-                            }
-                            else
-                            {
-                                Logger.Log($"Not closing session: TotalBooking={(activeSummary?.TotalBooking ?? -1)} (need > 0)");
-                            }
+                            LocalStorage.SetItem("lastBalanceResetTime", DateTime.Now.ToString("o"));
+                            // Update the booking count display immediately
+                            UpdateTotalsFromBookings();
                         }
                     }
                     else
                     {
                         TotalAmountTextBox.Text = "Worker Balance: ₹0.00";
+                        LocalStorage.SetItem("lastBalanceResetTime", DateTime.Now.ToString("o"));
+                        UpdateTotalsFromBookings();
                     }
                 }
                 else
@@ -816,7 +775,7 @@ namespace UserModule
                 int summariesSynced = await OfflineBookingStorage.SyncWorkerSummariesAsync();
                 if (summariesSynced > 0)
                 {
-                    Logger.Log($"{summariesSynced} worker summary/summaries synced to server");
+                    Logger.Log($"{summariesSynced} worker summaries synced to server");
                 }
 
                 // Show result

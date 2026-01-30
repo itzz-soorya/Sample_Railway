@@ -1202,9 +1202,9 @@ public static class OfflineBookingStorage
             int actualTotalHours = Math.Max(1, (int)Math.Ceiling(totalHoursExact));
             
             // Keep paid_amount as the initial payment only
-            // Extra charges (balance) go into balance_amount
+            // balance_amount = total balance collected at closure (unpaid balance + extra charges)
             decimal finalPaidAmount = initialPaidAmount;  // Keep original paid amount
-            decimal balanceAmount = extraCharges;  // Balance is the extra charges collected at checkout
+            decimal balanceAmount = balancePaymentAmount;  // Total balance collected at checkout
             
             // Save the full payment method name to balance_payment_method (same as payment_method)
             string balancePaymentMethod = paymentMethod;
