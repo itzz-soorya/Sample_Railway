@@ -1030,16 +1030,32 @@ namespace UserModule
                 if (button?.Tag is Booking1 booking)
                 {
                     Logger.Log($"[Report] Reprinting receipt for booking {booking.booking_id}");
-                    // Print receipt using existing helper
-                    bool success = ReceiptHelper.GenerateAndPrintReceipt(booking);
                     
-                    Logger.Log($"Reprinted receipt for booking {booking.booking_id}");
+                    // Use the reprint receipt format (simplified format for reprints)
+                    bool success = ReceiptHelper.GenerateAndPrintReprintReceipt(booking);
+                    
+                    if (success)
+                    {
+                        MessageBox.Show("Receipt reprinted successfully!", "Success", 
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                        Logger.Log($"Reprinted receipt for booking {booking.booking_id}");
+                    }
+                    else
+                    {
+                        MessageBox.Show("Failed to print receipt. Please check if printer is online.", "Print Error", 
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Unable to retrieve booking information.", "Error", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex);
-                MessageBox.Show("Failed to print receipt.", "Print Error", 
+                MessageBox.Show("Failed to print receipt. Please check if printer is online.", "Print Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
