@@ -1182,14 +1182,13 @@ public static class OfflineBookingStorage
 
             // 🔹 Step 2: Calculate actual total hours from in_time to out_time
             // Build full DateTime from booking_date + in_time
-
             DateTime inDateTime  = bookingDate.Date + inTime;
             DateTime outDateTime = bookingDate.Date + outTime;
 
-            // If out time is earlier than in time → reject (invalid selection)
-            if (outDateTime < inDateTime)
+            // If out time is earlier than in time, assume next-day checkout
+            if (outTime < inTime)
             {
-                return "❌ Out Time cannot be earlier than In Time";
+                outDateTime = outDateTime.AddDays(1);
             }
 
             // Calculate exact duration

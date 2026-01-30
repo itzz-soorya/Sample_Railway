@@ -150,23 +150,14 @@ namespace UserModule
             }
         }
 
-        private int CalculateActualHours(TimeSpan inTime, TimeSpan outTime)
+        private int CalculateActualHours(DateTime inDateTime, DateTime outDateTime)
         {
-            // Convert to minutes
-            int inMinutes = (int)(inTime.TotalMinutes);
-            int outMinutes = (int)(outTime.TotalMinutes);
-
-            // Calculate difference
-            int diffMinutes = outMinutes - inMinutes;
-
-            // Handle next-day checkout
-            if (diffMinutes < 0)
-            {
-                diffMinutes += 24 * 60; // Add 24 hours
-            }
-
+            // Calculate actual duration including date
+            TimeSpan duration = outDateTime - inDateTime;
+            int totalMinutes = (int)duration.TotalMinutes;
+            
             // Convert to hours and round up, minimum 1 hour
-            return Math.Max(1, (int)Math.Ceiling(diffMinutes / 60.0));
+            return Math.Max(1, (int)Math.Ceiling(totalMinutes / 60.0));
         }
 
         private void ShowPaymentSection(Booking1 booking)
@@ -186,7 +177,7 @@ namespace UserModule
                 DateTime currentTime = DateTime.Now;
                 TimeSpan currentOutTime = currentTime.TimeOfDay;
                 
-                // Calculate actual time spent in minutes
+                // Calculate actual time spent using full DateTime (handles next-day checkout)
                 DateTime inDateTime = booking.booking_date.Date + booking.in_time;
                 DateTime outDateTime = currentTime;
                 TimeSpan actualDuration = outDateTime - inDateTime;
@@ -221,8 +212,9 @@ namespace UserModule
                     Logger.Log($"No settings found, using default grace time: {graceMinutes} minutes");
                 }
                 
-                // Calculate actual hours from in_time to current out_time
-                int actualTotalHours = CalculateActualHours(booking.in_time, currentOutTime);
+                // Calculate actual hours from in_time to current out_time using full DateTime
+                // inDateTime and outDateTime already declared above (lines 181-182)
+                int actualTotalHours = CalculateActualHours(inDateTime, outDateTime);
                 
                 // Get booked hours
                 int bookedHours = booking.total_hours;
@@ -515,16 +507,16 @@ namespace UserModule
                 }
                 else
                 {
-                    // MessageBox.Show($"Failed to complete payment!\n\n{result}", "Error", 
-                    //     MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Failed to complete payment!\n\n{result}", "Error", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
                     btnCompletePayment.IsEnabled = true;
                 }
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex);
-                // MessageBox.Show($"Error completing payment: {ex.Message}", "Error", 
-                //     MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error completing payment: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 btnCompletePayment.IsEnabled = true;
             }
         }

@@ -15,28 +15,8 @@ namespace UserModule
         private bool _lastKnownInternetStatus = false;
         private static Mutex? _mutex = null;
 
-        // Windows API to attach console
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool AllocConsole();
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool FreeConsole();
-
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr GetConsoleWindow();
-
         public App()
         {
-            // Attach console window for debugging
-            if (GetConsoleWindow() == IntPtr.Zero)
-            {
-                AllocConsole();
-            }
-            
-            Console.WriteLine("====================================");
-            Console.WriteLine("    RAILAX - Console Logging Active");
-            Console.WriteLine("====================================\n");
-            
             // Global exception handlers to prevent crashes
             this.DispatcherUnhandledException += App_DispatcherUnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
