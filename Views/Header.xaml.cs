@@ -219,14 +219,13 @@ namespace UserModule
 
                 if (result == MessageBoxResult.Yes)
                 {
-                    // Close worker session (marks as completed and ready for sync)
+                    // Get worker info for logging (don't close session - only admin can close balance)
                     string? workerId = LocalStorage.GetItem("workerId");
                     string? adminId = LocalStorage.GetItem("adminId");
                     
-                    if (!string.IsNullOrEmpty(workerId) && !string.IsNullOrEmpty(adminId))
+                    if (!string.IsNullOrEmpty(workerId))
                     {
-                        OfflineBookingStorage.CloseWorkerSession(workerId, adminId);
-                        Logger.Log($"Worker session closed for {workerId}");
+                        Logger.Log($"Worker {workerId} logging out (session remains active until admin closes balance)");
                     }
                     
                     // Clear stored credentials from LocalStorage

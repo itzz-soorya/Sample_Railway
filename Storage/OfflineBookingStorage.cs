@@ -285,7 +285,7 @@ public static class OfflineBookingStorage
         cmd.Parameters.AddWithValue("@room_number", booking.room_number ?? "");
         
         // Get current worker name for booked_by
-        string workerName = LocalStorage.GetItem("workerName") ?? "Unknown";
+        string workerName = LocalStorage.GetItem("username") ?? "Unknown";
         cmd.Parameters.AddWithValue("@booked_by", workerName);
         cmd.Parameters.AddWithValue("@balance_payment_method", "");
         
@@ -428,7 +428,7 @@ public static class OfflineBookingStorage
         cmd.Parameters.AddWithValue("@room_number", booking.room_number ?? "");
         
         // Get current worker name for booked_by
-        string workerName = LocalStorage.GetItem("workerName") ?? "Unknown";
+        string workerName = LocalStorage.GetItem("username") ?? "Unknown";
         cmd.Parameters.AddWithValue("@booked_by", workerName);
         
         // balance_payment_method is empty until checkout completes with balance payment
@@ -462,7 +462,7 @@ public static class OfflineBookingStorage
     }
 
     // Online Syncing https://railway-api-worker.artechnology.pro/api/Booking/create
-    public static async Task<int> SyncAllOfflineBookingsAsync(string apiUrl = "http://localhost:5128/api/Booking/create", bool showMessages = true)
+    public static async Task<int> SyncAllOfflineBookingsAsync(string apiUrl = "https://railway-api-worker.artechnology.pro/api/Booking/create", bool showMessages = true)
     {
         using var connection = new SqliteConnection($"Data Source={DbPath}");
         connection.Open();
@@ -1122,7 +1122,7 @@ public static class OfflineBookingStorage
     // Method to update booking with payment details and completion info
     public static async Task<string> CompleteBookingWithPaymentAsync(
     string bookingId,
-    decimal paidAmount,
+    decimal balancePaymentAmount,
     decimal totalAmount,
     decimal extraCharges,
     string paymentMethod,
@@ -1133,10 +1133,14 @@ public static class OfflineBookingStorage
         using var connection = new SqliteConnection($"Data Source={DbPath}");
         await connection.OpenAsync();
 
-        // 🔹 Step 1: Check if booking exists and get in_time and booking_date
-        string select = "SELECT status, total_amount, IsSynced, in_time, booking_date FROM Bookings WHERE booking_id = @id";
+        // 🔹 Step 1: Check if booking exists and get initial values BEFORE update
+        string select = "SELECT status, total_amount, IsSynced, in_time, booking_date, paid_amount, worker_id, booking_type FROM Bookings WHERE booking_id = @id";
         TimeSpan inTime = TimeSpan.Zero;
         DateTime bookingDate = DateTime.Today;
+        decimal initialPaidAmount = 0;
+        decimal initialTotalAmount = 0;
+        string? workerId = null;
+        string? bookingType = null;
         
         using (var checkCmd = new SqliteCommand(select, connection))
         {
@@ -1150,6 +1154,12 @@ public static class OfflineBookingStorage
 
             string currentStatus = reader["status"]?.ToString()?.ToLower() ?? "";
             int isSynced = Convert.ToInt32(reader["IsSynced"]);
+            
+            // Store initial values before update
+            initialPaidAmount = Convert.ToDecimal(reader["paid_amount"]);
+            initialTotalAmount = Convert.ToDecimal(reader["total_amount"]);
+            workerId = reader["worker_id"]?.ToString();
+            bookingType = reader["booking_type"]?.ToString();
             
             // Parse booking_date
             if (DateTime.TryParse(reader["booking_date"]?.ToString(), out DateTime parsedDate))
@@ -1191,7 +1201,10 @@ public static class OfflineBookingStorage
             // Round up minimum 1 hour
             int actualTotalHours = Math.Max(1, (int)Math.Ceiling(totalHoursExact));
             
-            decimal balanceAmount = totalAmount - paidAmount;
+            // Keep paid_amount as the initial payment only
+            // Extra charges (balance) go into balance_amount
+            decimal finalPaidAmount = initialPaidAmount;  // Keep original paid amount
+            decimal balanceAmount = extraCharges;  // Balance is the extra charges collected at checkout
             
             // Save the full payment method name to balance_payment_method (same as payment_method)
             string balancePaymentMethod = paymentMethod;
@@ -1242,7 +1255,7 @@ public static class OfflineBookingStorage
             {
                 updateCmd.Parameters.AddWithValue("@booking_id", bookingId);
                 updateCmd.Parameters.AddWithValue("@total_hours", actualTotalHours);
-                updateCmd.Parameters.AddWithValue("@paid_amount", paidAmount);
+                updateCmd.Parameters.AddWithValue("@paid_amount", finalPaidAmount);
                 updateCmd.Parameters.AddWithValue("@total_amount", totalAmount);
                 updateCmd.Parameters.AddWithValue("@balance_amount", balanceAmount);
                 updateCmd.Parameters.AddWithValue("@payment_method", paymentMethod);
@@ -1260,71 +1273,56 @@ public static class OfflineBookingStorage
                 {
                     Logger.Log($"Booking {bookingId} completed with payment: {paymentMethod}, Total: ₹{totalAmount}, Balance: ₹{balanceAmount}, IsSynced: {isSynced}");
                     
-                    // Update worker summary with balance payment if balance was paid
-                    if (paidAmount > 0)
+                    // Update worker summary for the CLOSING worker (currently logged-in worker)
+                    string closingWorkerId = LocalStorage.GetItem("workerId") ?? "";
+                    string adminId = LocalStorage.GetItem("adminId") ?? "";
+                    
+                    if (!string.IsNullOrEmpty(closingWorkerId))
                     {
-                        // Get booking details to extract worker_id, booking_type, and calculate paid balance and extra charges
-                        string getBookingQuery = "SELECT worker_id, booking_type, paid_amount AS initial_paid, total_amount AS initial_total FROM Bookings WHERE booking_id = @id";
-                        using (var getBookingCmd = new SqliteCommand(getBookingQuery, connection))
+                        // The balancePaymentAmount parameter is the balance being paid NOW (extra charges)
+                        decimal balancePaid = balancePaymentAmount;
+                        
+                        // Calculate extra charges (difference between final total and initial total)
+                        decimal calculatedExtraCharges = totalAmount - initialTotalAmount;
+                        
+                        if (balancePaid > 0 || calculatedExtraCharges > 0)
                         {
-                            getBookingCmd.Parameters.AddWithValue("@id", bookingId);
-                            using var bookingReader = await getBookingCmd.ExecuteReaderAsync();
-                            
-                            if (await bookingReader.ReadAsync())
+                            // Update the CLOSING worker's summary (not the booking creator's)
+                            int sNo = GetOrCreateActiveWorkerSummary(closingWorkerId, adminId);
+                            if (sNo != -1)
                             {
-                                string? workerId = bookingReader["worker_id"]?.ToString();
-                                string? bookingType = bookingReader["booking_type"]?.ToString();
-                                decimal initialPaid = Convert.ToDecimal(bookingReader["initial_paid"]);
-                                decimal initialTotal = Convert.ToDecimal(bookingReader["initial_total"]);
+                                bool isSitting = bookingType?.ToLower() == "sitting";
+                                bool isSleeping = bookingType?.ToLower() == "sleeper" || bookingType?.ToLower() == "sleeping";
+                                bool isCash = paymentMethod?.ToLower() == "cash";
+                                bool isUpi = paymentMethod?.ToLower() == "upi" || paymentMethod?.ToLower() == "online";
+                                            
+                                string balanceUpdateQuery = @"
+                                    UPDATE workers_summary
+                                    SET
+                                        sitting_booking_total_amount = sitting_booking_total_amount + @sitting_amount,
+                                        sleeping_total_amount = sleeping_total_amount + @sleeping_amount,
+                                        in_cash_collect = in_cash_collect + @cash_amount,
+                                        in_upi_collect = in_upi_collect + @upi_amount,
+                                        total_balance = total_balance - @balance_paid,
+                                        extra_charges = extra_charges + @extra_charges,
+                                        last_updated_timestamp = @updated_time,
+                                        is_synced = 0
+                                    WHERE s_no = @s_no";
                                 
-                                if (!string.IsNullOrEmpty(workerId))
+                                using (var balanceUpdateCmd = new SqliteCommand(balanceUpdateQuery, connection))
                                 {
-                                    string adminId = LocalStorage.GetItem("adminId") ?? "";
+                                    // Add balance_amount to revenue (the amount paid at checkout by closing worker)
+                                    balanceUpdateCmd.Parameters.AddWithValue("@sitting_amount", isSitting ? balancePaid : 0);
+                                    balanceUpdateCmd.Parameters.AddWithValue("@sleeping_amount", isSleeping ? balancePaid : 0);
+                                    balanceUpdateCmd.Parameters.AddWithValue("@cash_amount", isCash ? balancePaid : 0);
+                                    balanceUpdateCmd.Parameters.AddWithValue("@upi_amount", isUpi ? balancePaid : 0);
+                                    balanceUpdateCmd.Parameters.AddWithValue("@balance_paid", balancePaid);
+                                    balanceUpdateCmd.Parameters.AddWithValue("@extra_charges", calculatedExtraCharges);
+                                    balanceUpdateCmd.Parameters.AddWithValue("@updated_time", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                                    balanceUpdateCmd.Parameters.AddWithValue("@s_no", sNo);
                                     
-                                    // Calculate the balance that was just paid
-                                    decimal balancePaid = paidAmount - initialPaid;
-                                    
-                                    // Calculate extra charges (difference between final total and initial total)
-                                    decimal calculatedExtraCharges = totalAmount - initialTotal;
-                                    
-                                    if (balancePaid > 0)
-                                    {
-                                        // Update sitting/sleeping totals based on booking type
-                                        int sNo = GetOrCreateActiveWorkerSummary(workerId, adminId);
-                                        if (sNo != -1)
-                                        {
-                                            bool isSitting = bookingType?.ToLower() == "sitting";
-                                            bool isSleeping = bookingType?.ToLower() == "sleeper";
-                                            bool isCash = paymentMethod?.ToLower() == "cash";
-                                            bool isUpi = paymentMethod?.ToLower() == "upi" || paymentMethod?.ToLower() == "online";
-                                            
-                                            string balanceUpdateQuery = @"
-                                                UPDATE workers_summary
-                                                SET
-                                                    sitting_booking_total_amount = sitting_booking_total_amount + @sitting_amount,
-                                                    sleeping_total_amount = sleeping_total_amount + @sleeping_amount,
-                                                    in_cash_collect = in_cash_collect + @cash_amount,
-                                                    in_upi_collect = in_upi_collect + @upi_amount,
-                                                    total_balance = total_balance - @balance_paid,
-                                                    extra_charges = extra_charges + @extra_charges,
-                                                    last_updated_timestamp = @updated_time,
-                                                    is_synced = 0
-                                                WHERE s_no = @s_no";
-                                            
-                                            using var balanceUpdateCmd = new SqliteCommand(balanceUpdateQuery, connection);
-                                            balanceUpdateCmd.Parameters.AddWithValue("@sitting_amount", isSitting ? balancePaid : 0);
-                                            balanceUpdateCmd.Parameters.AddWithValue("@sleeping_amount", isSleeping ? balancePaid : 0);
-                                            balanceUpdateCmd.Parameters.AddWithValue("@cash_amount", isCash ? balancePaid : 0);
-                                            balanceUpdateCmd.Parameters.AddWithValue("@upi_amount", isUpi ? balancePaid : 0);
-                                            balanceUpdateCmd.Parameters.AddWithValue("@balance_paid", balancePaid);
-                                            balanceUpdateCmd.Parameters.AddWithValue("@extra_charges", calculatedExtraCharges);
-                                            balanceUpdateCmd.Parameters.AddWithValue("@updated_time", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-                                            balanceUpdateCmd.Parameters.AddWithValue("@s_no", sNo);
-                                            
-                                            await balanceUpdateCmd.ExecuteNonQueryAsync();
-                                            Logger.Log($"Worker summary updated with balance payment: ₹{balancePaid}, extra charges: ₹{calculatedExtraCharges}, method: {paymentMethod}");
-                                        }
-                                    }
+                                    await balanceUpdateCmd.ExecuteNonQueryAsync();
+                                    Logger.Log($"Worker summary updated for closing worker {closingWorkerId} - Balance added: ₹{balancePaid}, Extra charges: ₹{calculatedExtraCharges}, Method: {paymentMethod}");
                                 }
                             }
                         }
@@ -1337,7 +1335,7 @@ public static class OfflineBookingStorage
                         {
                             try
                             {
-                                await SyncSingleBookingUpdateAsync(bookingId, outTime, "completed", paymentMethod);
+                                await SyncSingleBookingUpdateAsync(bookingId, outTime, "completed", paymentMethod ?? "Cash");
                             }
                             catch (Exception ex)
                             {
@@ -1362,7 +1360,7 @@ public static class OfflineBookingStorage
     }
 }
 
-    public static void AfterSavedOffline(Booking1 booking)
+public static void AfterSavedOffline(Booking1 booking)
     {
         if (booking == null) return;
 
@@ -2307,8 +2305,9 @@ public static class OfflineBookingStorage
             updateCmd.Parameters.AddWithValue("@persons", booking.number_of_persons);
             updateCmd.Parameters.AddWithValue("@sitting_count", isSitting ? 1 : 0);
             updateCmd.Parameters.AddWithValue("@sleeping_count", isSleeping ? 1 : 0);
-            updateCmd.Parameters.AddWithValue("@sitting_amount", isSitting ? booking.total_amount : 0);
-            updateCmd.Parameters.AddWithValue("@sleeping_amount", isSleeping ? booking.total_amount : 0);
+            // Add paid_amount to revenue (not total_amount)
+            updateCmd.Parameters.AddWithValue("@sitting_amount", isSitting ? booking.paid_amount : 0);
+            updateCmd.Parameters.AddWithValue("@sleeping_amount", isSleeping ? booking.paid_amount : 0);
             updateCmd.Parameters.AddWithValue("@cash_amount", isCash ? booking.paid_amount : 0);
             updateCmd.Parameters.AddWithValue("@upi_amount", isUpi ? booking.paid_amount : 0);
             updateCmd.Parameters.AddWithValue("@balance_amount", booking.balance_amount);
@@ -2425,6 +2424,40 @@ public static class OfflineBookingStorage
 
             using var cmd = new SqliteCommand(query, connection);
             cmd.Parameters.AddWithValue("@worker_id", workerId);
+            cmd.Parameters.AddWithValue("@admin_id", adminId);
+
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                return MapWorkerSummaryFromReader(reader);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Get ANY active worker summary for the admin (used when worker logs out/in but session still active)
+    /// </summary>
+    public static WorkerSummaryRecord? GetAnyActiveWorkerSummary(string adminId)
+    {
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbPath}");
+            connection.Open();
+
+            string query = @"
+                SELECT * FROM workers_summary 
+                WHERE admin_id = @admin_id 
+                  AND status = 'active' 
+                ORDER BY login_time DESC
+                LIMIT 1";
+
+            using var cmd = new SqliteCommand(query, connection);
             cmd.Parameters.AddWithValue("@admin_id", adminId);
 
             using var reader = cmd.ExecuteReader();

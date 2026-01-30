@@ -223,30 +223,37 @@ namespace UserModule
                         decimal balance = balanceElement.GetDecimal();
                         TotalAmountTextBox.Text = $"Worker Balance: ₹{balance:F2}";
                         
-                        // If balance is 0, close active worker session and reset the booking count
+                        // If balance is 0 AND session has bookings, close the session (admin clicked close balance)
                         if (balance == 0)
                         {
-                            LocalStorage.SetItem("lastBalanceResetTime", DateTime.Now.ToString("o"));
+                            // Check if current session has any bookings before closing
+                            var activeSummary = OfflineBookingStorage.GetActiveWorkerSummary(workerId, adminId);
+                            Logger.Log($"Balance check: balance={balance}, activeSummary={(activeSummary != null ? "found" : "null")}, TotalBooking={activeSummary?.TotalBooking ?? -1}, Status={activeSummary?.Status ?? "null"}");
                             
-                            // Close current active worker session (reuse workerId and adminId from method scope)
-                            if (!string.IsNullOrEmpty(workerId) && !string.IsNullOrEmpty(adminId))
+                            if (activeSummary != null && activeSummary.TotalBooking > 0)
                             {
+                                // Session has bookings and balance is 0 - admin closed balance
+                                Logger.Log($"Closing session: worker={workerId}, bookings={activeSummary.TotalBooking}");
                                 bool sessionClosed = OfflineBookingStorage.CloseWorkerSession(workerId, adminId);
                                 if (sessionClosed)
                                 {
-                                    Logger.Log($"Worker session closed for worker {workerId} due to zero balance");
+                                    Logger.Log($"Worker session closed for worker {workerId} - Admin closed balance");
+                                    UpdateTotalsFromBookings();
+                                }
+                                else
+                                {
+                                    Logger.Log($"Failed to close session for worker {workerId}");
                                 }
                             }
-                            
-                            // Update the booking count display immediately
-                            UpdateTotalsFromBookings();
+                            else
+                            {
+                                Logger.Log($"Not closing session: TotalBooking={(activeSummary?.TotalBooking ?? -1)} (need > 0)");
+                            }
                         }
                     }
                     else
                     {
                         TotalAmountTextBox.Text = "Worker Balance: ₹0.00";
-                        LocalStorage.SetItem("lastBalanceResetTime", DateTime.Now.ToString("o"));
-                        UpdateTotalsFromBookings();
                     }
                 }
                 else

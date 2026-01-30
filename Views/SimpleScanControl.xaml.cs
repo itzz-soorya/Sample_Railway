@@ -393,7 +393,7 @@ namespace UserModule
                     
                     var checkoutResult = await OfflineBookingStorage.CompleteBookingWithPaymentAsync(
                         currentBooking.booking_id,
-                        checkoutPaidAmount,
+                        0, // No balance payment
                         checkoutTotalAmount,
                         0, // No extra charges
                         currentBooking.payment_method ?? "Cash", // Use original payment method
@@ -446,7 +446,8 @@ namespace UserModule
                 // Calculate amounts
                 decimal extraCharges = decimal.Parse(lblExtraCharges.Text.Replace("₹", ""));
                 decimal totalAmount = decimal.Parse(lblTotalAmount.Text.Replace("₹", ""));
-                decimal paidAmount = decimal.Parse(lblPaidAmount.Text.Replace("₹", ""));
+                decimal alreadyPaid = decimal.Parse(lblPaidAmount.Text.Replace("₹", ""));
+                decimal balancePayment = totalAmount - alreadyPaid;
 
                 // Disable button to prevent double clicks
                 btnCompletePayment.IsEnabled = false;
@@ -454,7 +455,7 @@ namespace UserModule
                 // Complete payment
                 var result = await OfflineBookingStorage.CompleteBookingWithPaymentAsync(
                     currentBooking.booking_id,
-                    paidAmount,
+                    balancePayment,
                     totalAmount,
                     extraCharges,
                     paymentMethod,
@@ -473,14 +474,14 @@ namespace UserModule
                         $"Booking ID: {currentBooking.booking_id}\n" +
                         $"Customer: {currentBooking.guest_name}\n" +
                         $"Total Amount: ₹{totalAmount:F2}\n" +
-                        $"Paid Amount: ₹{paidAmount:F2}\n" +
+                        $"Paid Amount: ₹{totalAmount:F2}\n" +
                         $"Payment Method: {paymentMethod}\n" +
                         $"Out Time: {outDateTime:yyyy-MM-dd HH:mm:ss}");
 
-                    Logger.Log($"Payment completed for booking {currentBooking.booking_id} - Amount: {paidAmount}, Method: {paymentMethod}");
+                    Logger.Log($"Payment completed for booking {currentBooking.booking_id} - Balance Paid: {balancePayment}, Total: {totalAmount}, Method: {paymentMethod}");
 
                     // Update booking with final amounts for receipt
-                    currentBooking.paid_amount = paidAmount;
+                    currentBooking.paid_amount = totalAmount;
                     currentBooking.total_amount = totalAmount;
                     currentBooking.balance_amount = 0;
                     currentBooking.out_time = outTime; // Set the out_time for receipt
