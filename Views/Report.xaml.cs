@@ -24,6 +24,7 @@ namespace UserModule
         private int currentPage = 1;
         private const int pageSize = 20;
         private int totalPages = 1;
+        private string activeFilter = "today"; // Track active filter button
 
         public Report()
         {
@@ -34,6 +35,9 @@ namespace UserModule
             ToDatePicker.SelectedDate = DateTime.Now;
             FromDatePicker.SelectedDate = DateTime.Now;
             Logger.Log($"[Report] Date pickers set: From={FromDatePicker.SelectedDate:yyyy-MM-dd}, To={ToDatePicker.SelectedDate:yyyy-MM-dd}");
+            
+            // Set initial filter button styles
+            Loaded += (s, e) => UpdateFilterButtonStyles();
             
             // Load data with server sync
             LoadReportDataWithSync();
@@ -183,13 +187,13 @@ namespace UserModule
             }
 
             // Filter bookings by:
-            // 1. Date range and completed status
+            // 1. Date range
             // 2. Either created by this worker (worker_id) OR closed by this worker (closed_by)
+            // 3. Show both active and completed bookings
             filteredBookings = allBookings
                 .Where(b => b.created_at.HasValue && 
                            b.created_at.Value >= fromDate && 
                            b.created_at.Value <= toDate &&
-                           b.status?.ToLower() == "completed" &&
                            (b.worker_id == currentWorkerId || 
                             b.closed_by == currentUsername))
                 .OrderByDescending(b => b.created_at)
@@ -749,6 +753,8 @@ namespace UserModule
                 return;
             }
 
+            activeFilter = "custom";
+            UpdateFilterButtonStyles();
             ApplyDateFilter();
         }
 
@@ -757,6 +763,8 @@ namespace UserModule
             Logger.Log("[Report] QuickFilter_Today - Filtering today's bookings");
             FromDatePicker.SelectedDate = DateTime.Now.Date;
             ToDatePicker.SelectedDate = DateTime.Now.Date;
+            activeFilter = "today";
+            UpdateFilterButtonStyles();
             ApplyDateFilter();
         }
 
@@ -765,6 +773,8 @@ namespace UserModule
             Logger.Log("[Report] QuickFilter_Last7Days - Filtering last 7 days");
             FromDatePicker.SelectedDate = DateTime.Now.AddDays(-7).Date;
             ToDatePicker.SelectedDate = DateTime.Now.Date;
+            activeFilter = "last7";
+            UpdateFilterButtonStyles();
             ApplyDateFilter();
         }
 
@@ -773,6 +783,8 @@ namespace UserModule
             Logger.Log("[Report] QuickFilter_Last30Days - Filtering last 30 days");
             FromDatePicker.SelectedDate = DateTime.Now.AddDays(-30).Date;
             ToDatePicker.SelectedDate = DateTime.Now.Date;
+            activeFilter = "last30";
+            UpdateFilterButtonStyles();
             ApplyDateFilter();
         }
 
@@ -782,7 +794,49 @@ namespace UserModule
             DateTime now = DateTime.Now;
             FromDatePicker.SelectedDate = new DateTime(now.Year, now.Month, 1);
             ToDatePicker.SelectedDate = now.Date;
+            activeFilter = "thisMonth";
+            UpdateFilterButtonStyles();
             ApplyDateFilter();
+        }
+
+        private void UpdateFilterButtonStyles()
+        {
+            // Reset all buttons to default white background
+            var defaultBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFFFFF"));
+            var activeBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A90E2"));
+            var defaultTextBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#374151"));
+            var activeTextBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFFFFF"));
+
+            // Reset all buttons
+            btnToday.Background = defaultBrush;
+            btnToday.Foreground = defaultTextBrush;
+            btnLast7.Background = defaultBrush;
+            btnLast7.Foreground = defaultTextBrush;
+            btnLast30.Background = defaultBrush;
+            btnLast30.Foreground = defaultTextBrush;
+            btnThisMonth.Background = defaultBrush;
+            btnThisMonth.Foreground = defaultTextBrush;
+
+            // Highlight active button
+            switch (activeFilter)
+            {
+                case "today":
+                    btnToday.Background = activeBrush;
+                    btnToday.Foreground = activeTextBrush;
+                    break;
+                case "last7":
+                    btnLast7.Background = activeBrush;
+                    btnLast7.Foreground = activeTextBrush;
+                    break;
+                case "last30":
+                    btnLast30.Background = activeBrush;
+                    btnLast30.Foreground = activeTextBrush;
+                    break;
+                case "thisMonth":
+                    btnThisMonth.Background = activeBrush;
+                    btnThisMonth.Foreground = activeTextBrush;
+                    break;
+            }
         }
 
         private async void SyncData_Click(object sender, RoutedEventArgs e)
