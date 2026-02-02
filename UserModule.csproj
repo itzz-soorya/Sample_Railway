@@ -11,11 +11,14 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Application Metadata -->
     <AssemblyName>Railax</AssemblyName>
-    <Version>1.0.0</Version>
-    <Company>Railax</Company>
+    <Version>2.0.0</Version>
+    <FileVersion>2.0.0</FileVersion>
+    <Company>Artechnologi</Company>
     <Product>Railax</Product>
     <Description>Railway Ticket Booking and Management System</Description>
-    <Copyright>Copyright © 2025</Copyright>
+    <Copyright>Copyright © 2026 Artechnologi</Copyright>
+    <Authors>Artechnologi</Authors>
+    <PackageProjectUrl>https://artechnology.pro</PackageProjectUrl>
     
     <!-- Disable auto-generation of assembly attributes to prevent duplicates -->
     <GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
