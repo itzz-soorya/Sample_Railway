@@ -178,10 +178,22 @@ namespace UserModule
                 TimeSpan currentOutTime = currentTime.TimeOfDay;
                 
                 // Calculate actual time spent using full DateTime (handles next-day checkout)
+                // Important: booking.booking_date contains the check-in date
                 DateTime inDateTime = booking.booking_date.Date + booking.in_time;
-                DateTime outDateTime = currentTime;
+                DateTime outDateTime = DateTime.Now; // Current actual time with date
+                
+                // Handle overnight bookings: if current time is "earlier" than check-in time,
+                // it means we've crossed midnight
+                if (outDateTime < inDateTime)
+                {
+                    Logger.LogError(new Exception($"Out time {outDateTime} is before in time {inDateTime} - possible date issue"));
+                }
+                
                 TimeSpan actualDuration = outDateTime - inDateTime;
                 int actualMinutes = (int)actualDuration.TotalMinutes;
+                
+                // Log for debugging overnight bookings
+                Logger.Log($"Overnight check: In={inDateTime:yyyy-MM-dd HH:mm:ss}, Out={outDateTime:yyyy-MM-dd HH:mm:ss}, Duration={actualMinutes} minutes ({actualDuration.TotalHours:F2} hours)");
                 
                 // Get grace time from settings
                 var settings = OfflineBookingStorage.GetWorkerSettings();
@@ -219,7 +231,7 @@ namespace UserModule
                 // Get booked hours
                 int bookedHours = booking.total_hours;
                 
-                Logger.Log($"Booking details: In={booking.in_time}, Out={currentOutTime}, Booked={bookedHours}hr, Actual={actualMinutes}min, Grace={graceMinutes}min");
+                Logger.Log($"Booking details: BookingDate={booking.booking_date:yyyy-MM-dd}, In={booking.in_time}, Out={currentOutTime}, Booked={bookedHours}hr, Actual={actualMinutes}min ({actualDuration.TotalHours:F2}hr), Grace={graceMinutes}min");
                 
                 // Calculate booked time + grace period in minutes
                 int bookedMinutes = bookedHours * 60;
@@ -256,6 +268,11 @@ namespace UserModule
                 {
                     int extraHours = actualTotalHours - bookedHours;
                     
+                    // Calculate actual hourly rate from the original booking
+                    decimal hourlyRate = baseAmount / bookedHours / booking.number_of_persons;
+                    
+                    Logger.Log($"Extra charge calculation: BaseAmount=₹{baseAmount}, BookedHours={bookedHours}, Persons={booking.number_of_persons}, HourlyRate=₹{hourlyRate}/hr, ExtraHours={extraHours}");
+                    
                     if (isSleeper)
                     {
                         // For Sleeper: use pricing tiers
@@ -283,18 +300,19 @@ namespace UserModule
                         }
                         else
                         {
-                            // Fallback: estimate hourly rate from booked amount
-                            decimal estimatedHourlyRate = booking.price_per_person / bookedHours;
-                            extraCharges = estimatedHourlyRate * booking.number_of_persons * extraHours;
+                            // Fallback: use calculated hourly rate
+                            extraCharges = hourlyRate * booking.number_of_persons * extraHours;
                             actualTotalAmount = baseAmount + extraCharges;
                         }
                     }
                     else
                     {
-                        // For Sitting: simple hourly calculation
-                        extraCharges = booking.price_per_person * booking.number_of_persons * extraHours;
+                        // For Sitting: simple hourly calculation using actual hourly rate
+                        extraCharges = hourlyRate * booking.number_of_persons * extraHours;
                         actualTotalAmount = baseAmount + extraCharges;
                     }
+                    
+                    Logger.Log($"Extra charges calculated: ₹{extraCharges} ({extraHours} hours × ₹{hourlyRate}/hr × {booking.number_of_persons} persons), New total: ₹{actualTotalAmount}");
                 }
                 
                 decimal paidAmount = booking.paid_amount;
