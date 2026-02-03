@@ -83,6 +83,22 @@ namespace UserModule
                     RightMargin = 6
                 };
             }
+            // SHREYANS 80mm Thermal Printer (CN811-UEW)
+            else if (printerLower.Contains("shreyans") || printerLower.Contains("cn811"))
+            {
+                return new PrinterProfile
+                {
+                    PrinterType = "SHREYANS CN811-UEW",
+                    ReceiptWidth = 304,
+                    PageWidth = 304,
+                    PageHeight = 842,
+                    DPI = 203,
+                    BarcodeWidth = 250,
+                    BarcodeHeight = 45,
+                    LeftMargin = 5,
+                    RightMargin = 5
+                };
+            }
             // Generic 80mm thermal printer (default)
             else
             {

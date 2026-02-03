@@ -193,7 +193,7 @@ namespace UserModule
                 FontSize = 10,
                 FontWeight = FontWeights.Bold,
                 TextAlignment = TextAlignment.Right,
-                Margin = new Thickness(0, 0, 20, 0)
+                Margin = new Thickness(0, 0, 40, 0)
             };
             Grid.SetColumn(dateBlock, 1);
             
@@ -290,16 +290,16 @@ namespace UserModule
             };
             stack.Children.Add(barcode);
 
-            // Note at the bottom (left-aligned)
+            // Note at the bottom (center-aligned)
             if (!string.IsNullOrWhiteSpace(note))
             {
                 stack.Children.Add(new TextBlock
                 {
-                    Text = $"Note: {note}",
+                    Text = $"{note}",
                     FontSize = 8,
                     Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
-                    TextAlignment = TextAlignment.Left,
-                    HorizontalAlignment = HorizontalAlignment.Left,
+                    TextAlignment = TextAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
                     TextWrapping = TextWrapping.Wrap,
                     Margin = new Thickness(printerProfile.LeftMargin, 3, printerProfile.RightMargin, 2)
                 });

@@ -172,7 +172,7 @@ namespace UserModule
                 lblCustomerPhone.Text = $"Phone: {booking.phone_number ?? "N/A"}";
                 lblSeatType.Text = $"Booking ID: {booking.booking_id} | Type: {booking.booking_type}";
                 lblInTimeDisplay.Text = $"In Time: {booking.in_time.ToString(@"hh\:mm\:ss")}";
-
+                
                 // Get current time as out_time
                 DateTime currentTime = DateTime.Now;
                 TimeSpan currentOutTime = currentTime.TimeOfDay;
@@ -191,6 +191,13 @@ namespace UserModule
                 
                 TimeSpan actualDuration = outDateTime - inDateTime;
                 int actualMinutes = (int)actualDuration.TotalMinutes;
+                
+                // Calculate actual usage in hours and minutes for display
+                int actualHours = actualMinutes / 60;
+                int actualMins = actualMinutes % 60;
+                
+                // Show booking date, in time, booked hours, and actual usage
+                lblInTimeDisplay.Text = $"Date: {booking.booking_date:dd-MMM-yyyy} | In Time: {booking.in_time.ToString(@"hh\:mm\:ss")} | Booked: {booking.total_hours}hrs | Actual Usage: {actualHours:D2}:{actualMins:D2} Hours";
                 
                 // Log for debugging overnight bookings
                 Logger.Log($"Overnight check: In={inDateTime:yyyy-MM-dd HH:mm:ss}, Out={outDateTime:yyyy-MM-dd HH:mm:ss}, Duration={actualMinutes} minutes ({actualDuration.TotalHours:F2} hours)");
