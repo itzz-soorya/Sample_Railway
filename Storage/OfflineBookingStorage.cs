@@ -148,8 +148,8 @@ public static class OfflineBookingStorage
             advance_payment_enabled INTEGER DEFAULT 0,
             default_advance_percentage REAL DEFAULT 0,
             last_synced TEXT,
-            grace_time_type_1 INTEGER DEFAULT 25,
-            grace_time_type_2 INTEGER DEFAULT 25
+            grace_time_type_1 INTEGER DEFAULT 10,
+            grace_time_type_2 INTEGER DEFAULT 10
         );";
 
         using (var cmd = new SqliteCommand(createSettingsTable, connection))
@@ -1682,12 +1682,14 @@ public static void AfterSavedOffline(Booking1 booking)
             deleteCmd.ExecuteNonQuery();
         }
 
-        // Prepare insert query (store 2 types and advance settings)
+        // Prepare insert query (store 2 types, advance settings, and grace times)
         string insertQuery = @"
             INSERT INTO Settings (admin_id, type_1, type_1_amount, type_2, type_2_amount, 
-                                 advance_payment_enabled, default_advance_percentage, last_synced)
+                                 advance_payment_enabled, default_advance_percentage, 
+                                 grace_time_type_1, grace_time_type_2, last_synced)
             VALUES (@admin_id, @type_1, @type_1_amount, @type_2, @type_2_amount, 
-                   @advance_payment_enabled, @default_advance_percentage, @last_synced)";
+                   @advance_payment_enabled, @default_advance_percentage, 
+                   @grace_time_type_1, @grace_time_type_2, @last_synced)";
 
         using var cmd = new SqliteCommand(insertQuery, connection);
         cmd.Parameters.AddWithValue("@admin_id", adminId);
@@ -1702,6 +1704,11 @@ public static void AfterSavedOffline(Booking1 booking)
 
         cmd.Parameters.AddWithValue("@advance_payment_enabled", response.AdvancePaymentEnabled ? 1 : 0);
         cmd.Parameters.AddWithValue("@default_advance_percentage", response.AdvancePayment ?? (object)DBNull.Value);
+        
+        // Add grace time parameters (use API values or default to 10 minutes)
+        cmd.Parameters.AddWithValue("@grace_time_type_1", response.GraceTimeType1 ?? 10);
+        cmd.Parameters.AddWithValue("@grace_time_type_2", response.GraceTimeType2 ?? 10);
+        
         cmd.Parameters.AddWithValue("@last_synced", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
         cmd.ExecuteNonQuery();
 

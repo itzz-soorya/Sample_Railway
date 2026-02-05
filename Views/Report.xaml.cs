@@ -211,101 +211,20 @@ namespace UserModule
         {
             Logger.Log("[Report] UpdateSummaryCards started");
             
-            // Prefer worker_summary data when available (it has accurate amounts)
-            if (currentSummary != null && currentSummary.Status == "active")
+            // Only show data if there's an active session
+            if (currentSummary == null || currentSummary.Status != "active")
             {
-                txtTotalBookings.Text = currentSummary.TotalBooking.ToString();
-                decimal summaryRevenue = currentSummary.SittingBookingTotalAmount + currentSummary.SleepingTotalAmount;
-                txtTotalRevenue.Text = $"₹{summaryRevenue:N0}";
-                Logger.Log($"[Report] Summary cards updated from worker summary: Bookings={currentSummary.TotalBooking}, Revenue=₹{summaryRevenue}");
+                Logger.Log($"[Report] No active session, showing zero: currentSummary={currentSummary != null}, Status={currentSummary?.Status}");
+                txtTotalBookings.Text = "0";
+                txtTotalRevenue.Text = "₹0";
                 return;
             }
             
-            // Fallback: Calculate from bookings if no worker summary
-            // Get current worker info
-            string currentUsername = LocalStorage.GetItem("username") ?? "";
-            string currentWorkerId = LocalStorage.GetItem("workerId") ?? "";
-            
-            if (allBookings != null && allBookings.Any() && !string.IsNullOrEmpty(currentUsername))
-            {
-                // Get active bookings by this worker
-                var activeBookings = allBookings
-                    .Where(b => "active".Equals(b.status, StringComparison.OrdinalIgnoreCase) &&
-                               (b.worker_id == currentWorkerId || b.booked_by == currentUsername))
-                    .ToList();
-                
-                // Get completed bookings where this worker was involved (created OR closed)
-                var completedBookings = allBookings
-                    .Where(b => "completed".Equals(b.status, StringComparison.OrdinalIgnoreCase))
-                    .Where(b => b.booked_by == currentUsername || b.closed_by == currentUsername)
-                    .ToList();
-                
-                // Calculate active bookings revenue
-                decimal activeRevenue = activeBookings.Sum(b => b.paid_amount);
-                
-                // Calculate completed bookings revenue (for this worker)
-                decimal completedRevenue = completedBookings.Sum(b => 
-                {
-                    // If they created AND closed the booking, they get full payment
-                    if (b.booked_by == currentUsername && b.closed_by == currentUsername)
-                        return b.paid_amount + b.balance_amount;
-                    // If they only created it, they get paid_amount (initial payment)
-                    else if (b.booked_by == currentUsername && b.closed_by != currentUsername)
-                    {
-                        // Backwards compatibility: If balance_amount is 0 but booking was closed by someone else,
-                        // the paid_amount might include everything (old buggy data)
-                        // In this case, we need to calculate the initial payment from price_per_person
-                        if (b.balance_amount == 0 && b.total_amount > b.price_per_person * b.number_of_persons)
-                        {
-                            // Old data format - calculate initial payment
-                            decimal initialPayment = b.price_per_person * b.number_of_persons * b.total_hours;
-                            return Math.Min(initialPayment, b.paid_amount);
-                        }
-                        return b.paid_amount;
-                    }
-                    // If they only closed it, they get the balance_amount they collected
-                    else if (b.closed_by == currentUsername && b.booked_by != currentUsername)
-                    {
-                        // Backwards compatibility: If balance_amount is 0 but total_amount > expected initial,
-                        // calculate what the balance should have been
-                        if (b.balance_amount == 0 && b.paid_amount > 0)
-                        {
-                            decimal expectedInitial = b.price_per_person * b.number_of_persons * b.total_hours;
-                            if (b.total_amount > expectedInitial)
-                            {
-                                // Old data - calculate balance as difference
-                                return b.total_amount - expectedInitial;
-                            }
-                        }
-                        return b.balance_amount;
-                    }
-                    else
-                        return 0;
-                });
-                
-                // Total Revenue = Active Revenue + Completed Revenue
-                decimal totalRevenue = activeRevenue + completedRevenue;
-                int totalBookings = activeBookings.Count + completedBookings.Count;
-                
-                txtTotalBookings.Text = totalBookings.ToString();
-                txtTotalRevenue.Text = $"₹{totalRevenue:N0}";
-                Logger.Log($"[Report] Summary cards updated: Bookings={totalBookings}, Active Revenue=₹{activeRevenue}, Completed Revenue=₹{completedRevenue}, Total Revenue=₹{totalRevenue}");
-                return;
-            }
-            
-            // Fallback to worker_summary if no booking data
-            if (currentSummary != null)
-            {
-                txtTotalBookings.Text = currentSummary.TotalBooking.ToString();
-                decimal summaryRevenue = currentSummary.SittingBookingTotalAmount + currentSummary.SleepingTotalAmount;
-                txtTotalRevenue.Text = $"₹{summaryRevenue:N0}";
-                Logger.Log($"[Report] Summary cards updated from worker summary: Bookings={currentSummary.TotalBooking}, Revenue=₹{summaryRevenue}");
-                return;
-            }
-
-            // No data available
-            txtTotalBookings.Text = "0";
-            txtTotalRevenue.Text = "₹0";
+            // Use worker_summary data from active session
+            txtTotalBookings.Text = currentSummary.TotalBooking.ToString();
+            decimal summaryRevenue = currentSummary.SittingBookingTotalAmount + currentSummary.SleepingTotalAmount;
+            txtTotalRevenue.Text = $"₹{summaryRevenue:N0}";
+            Logger.Log($"[Report] Summary cards updated from active worker summary: Bookings={currentSummary.TotalBooking}, Revenue=₹{summaryRevenue}");
         }
 
         private void UpdateAllStatistics()
@@ -320,103 +239,23 @@ namespace UserModule
         {
             Logger.Log("[Report] UpdateBookingTypeBreakdown started");
             
-            // Prefer worker_summary data when available (it has accurate amounts)
-            if (currentSummary != null && currentSummary.Status == "active")
+            // Only show data if there's an active session
+            if (currentSummary == null || currentSummary.Status != "active")
             {
-                txtSittingCount.Text = currentSummary.SittingBookingCount.ToString();
-                txtSittingRevenue.Text = $"₹{currentSummary.SittingBookingTotalAmount:N0}";
-                txtSleeperCount.Text = currentSummary.SleepingBookingCount.ToString();
-                txtSleeperRevenue.Text = $"₹{currentSummary.SleepingTotalAmount:N0}";
-                Logger.Log($"[Report] Booking type breakdown from summary: Sitting={currentSummary.SittingBookingCount}/₹{currentSummary.SittingBookingTotalAmount}, Sleeper={currentSummary.SleepingBookingCount}/₹{currentSummary.SleepingTotalAmount}");
+                Logger.Log($"[Report] No active session, showing zero for booking types");
+                txtSittingCount.Text = "0";
+                txtSittingRevenue.Text = "₹0";
+                txtSleeperCount.Text = "0";
+                txtSleeperRevenue.Text = "₹0";
                 return;
             }
             
-            // Fallback: Calculate from bookings if no worker summary
-            // Get current worker info
-            string currentUsername = LocalStorage.GetItem("username") ?? "";
-            
-            // Calculate from bookings directly (both active and completed)
-            if (allBookings != null && allBookings.Any() && !string.IsNullOrEmpty(currentUsername))
-            {
-                // Get all bookings where this worker was involved
-                var workerBookings = allBookings
-                    .Where(b => ("active".Equals(b.status, StringComparison.OrdinalIgnoreCase) || 
-                                "completed".Equals(b.status, StringComparison.OrdinalIgnoreCase)) &&
-                               (b.booked_by == currentUsername || b.closed_by == currentUsername))
-                    .ToList();
-                
-                // Sitting bookings
-                var sittingBookings = workerBookings
-                    .Where(b => "Sitting".Equals(b.booking_type, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-                
-                int sittingCount = sittingBookings.Count;
-                decimal sittingRevenue = sittingBookings.Sum(b => 
-                {
-                    // Active bookings: only count if created by this worker
-                    if ("active".Equals(b.status, StringComparison.OrdinalIgnoreCase))
-                        return (b.booked_by == currentUsername) ? b.paid_amount : 0;
-                    
-                    // Completed bookings
-                    if (b.booked_by == currentUsername && b.closed_by == currentUsername)
-                        return b.paid_amount + b.balance_amount;
-                    else if (b.booked_by == currentUsername)
-                        return b.paid_amount;
-                    else if (b.closed_by == currentUsername)
-                        return b.balance_amount;
-                    else
-                        return 0;
-                });
-
-                // Sleeper bookings
-                var sleeperBookings = workerBookings
-                    .Where(b => "Sleeper".Equals(b.booking_type, StringComparison.OrdinalIgnoreCase) || 
-                               "Sleeping".Equals(b.booking_type, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-                
-                int sleeperCount = sleeperBookings.Count;
-                decimal sleeperRevenue = sleeperBookings.Sum(b => 
-                {
-                    // Active bookings: only count if created by this worker
-                    if ("active".Equals(b.status, StringComparison.OrdinalIgnoreCase))
-                        return (b.booked_by == currentUsername) ? b.paid_amount : 0;
-                    
-                    // Completed bookings
-                    if (b.booked_by == currentUsername && b.closed_by == currentUsername)
-                        return b.paid_amount + b.balance_amount;
-                    else if (b.booked_by == currentUsername)
-                        return b.paid_amount;
-                    else if (b.closed_by == currentUsername)
-                        return b.balance_amount;
-                    else
-                        return 0;
-                });
-
-                // Update UI
-                txtSittingCount.Text = sittingCount.ToString();
-                txtSittingRevenue.Text = $"₹{sittingRevenue:N0}";
-                txtSleeperCount.Text = sleeperCount.ToString();
-                txtSleeperRevenue.Text = $"₹{sleeperRevenue:N0}";
-                Logger.Log($"[Report] Booking type breakdown: Sitting={sittingCount}/₹{sittingRevenue}, Sleeper={sleeperCount}/₹{sleeperRevenue}");
-                return;
-            }
-            
-            // Fallback to worker_summary
-            if (currentSummary != null && currentSummary.Status == "active")
-            {
-                txtSittingCount.Text = currentSummary.SittingBookingCount.ToString();
-                txtSittingRevenue.Text = $"₹{currentSummary.SittingBookingTotalAmount:N0}";
-                txtSleeperCount.Text = currentSummary.SleepingBookingCount.ToString();
-                txtSleeperRevenue.Text = $"₹{currentSummary.SleepingTotalAmount:N0}";
-                Logger.Log($"[Report] Booking type breakdown from summary: Sitting={currentSummary.SittingBookingCount}/₹{currentSummary.SittingBookingTotalAmount}, Sleeper={currentSummary.SleepingBookingCount}/₹{currentSummary.SleepingTotalAmount}");
-                return;
-            }
-
-            // No data available
-            txtSittingCount.Text = "0";
-            txtSittingRevenue.Text = "₹0";
-            txtSleeperCount.Text = "0";
-            txtSleeperRevenue.Text = "₹0";
+            // Use worker_summary data from active session
+            txtSittingCount.Text = currentSummary.SittingBookingCount.ToString();
+            txtSittingRevenue.Text = $"₹{currentSummary.SittingBookingTotalAmount:N0}";
+            txtSleeperCount.Text = currentSummary.SleepingBookingCount.ToString();
+            txtSleeperRevenue.Text = $"₹{currentSummary.SleepingTotalAmount:N0}";
+            Logger.Log($"[Report] Booking type breakdown from active summary: Sitting={currentSummary.SittingBookingCount}/₹{currentSummary.SittingBookingTotalAmount}, Sleeper={currentSummary.SleepingBookingCount}/₹{currentSummary.SleepingTotalAmount}");
         }
 
         private void UpdateStatusBreakdown()
@@ -448,20 +287,33 @@ namespace UserModule
                 return;
             }
 
-            // Active bookings (any active booking by this worker)
+            // Get current session start time to filter bookings
+            DateTime? sessionStartTime = null;
+            if (currentSummary != null && !string.IsNullOrEmpty(currentSummary.CreatedTime))
+            {
+                if (DateTime.TryParse(currentSummary.CreatedTime, out DateTime parsedTime))
+                {
+                    sessionStartTime = parsedTime;
+                }
+            }
+            Logger.Log($"[Report] Current session started at: {sessionStartTime:yyyy-MM-dd HH:mm:ss}");
+
+            // Active bookings (only from current session - filter by session start time)
             var activeBookings = allBookings
                 .Where(b => "active".Equals(b.status, StringComparison.OrdinalIgnoreCase) &&
-                           (b.worker_id == currentWorkerId || b.closed_by == currentUsername))
+                           (b.worker_id == currentWorkerId || b.closed_by == currentUsername) &&
+                           (!sessionStartTime.HasValue || !b.created_at.HasValue || b.created_at >= sessionStartTime))
                 .ToList();
             
             int activeCount = activeBookings.Count;
             decimal activeAmount = activeBookings.Sum(b => b.total_amount);
-            Logger.Log($"[Report] Active bookings: {activeCount}, Amount: ₹{activeAmount}");
+            Logger.Log($"[Report] Active bookings (current session): {activeCount}, Amount: ₹{activeAmount}");
 
-            // Completed bookings - show all completed bookings where this worker was involved (created OR closed)
+            // Completed bookings - only from current session (filter by session start time)
             var completedBookings = allBookings
                 .Where(b => "completed".Equals(b.status, StringComparison.OrdinalIgnoreCase))
                 .Where(b => b.booked_by == currentUsername || b.closed_by == currentUsername)
+                .Where(b => !sessionStartTime.HasValue || !b.created_at.HasValue || b.created_at >= sessionStartTime)
                 .ToList();
             
             int completedCount = completedBookings.Count;
@@ -580,55 +432,22 @@ namespace UserModule
         private void UpdatePaymentMethodBreakdown()
         {
             Logger.Log("[Report] UpdatePaymentMethodBreakdown started");
-            // Use worker_summary data if available and session is active
-            if (currentSummary != null && currentSummary.Status == "active")
+            
+            // Only show data if there's an active session
+            if (currentSummary == null || currentSummary.Status != "active")
             {
-                txtPaymentCount.Text = currentSummary.TotalBooking.ToString();
-                txtCashAmount.Text = $"₹{currentSummary.InCashCollect:N0}";
-                txtOnlineAmount.Text = $"₹{currentSummary.InUpiCollect:N0}";
-                Logger.Log($"[Report] Payment breakdown: Cash=₹{currentSummary.InCashCollect}, UPI=₹{currentSummary.InUpiCollect}");
-                return;
-            }
-
-            // Fallback: Calculate from bookings
-            if (filteredBookings == null || !filteredBookings.Any())
-            {
+                Logger.Log($"[Report] No active session, showing zero for payments");
                 txtPaymentCount.Text = "0";
                 txtCashAmount.Text = "₹0";
                 txtOnlineAmount.Text = "₹0";
                 return;
             }
-
-            // Group by payment method and sum paid amounts
-            // Note: This shows the final payment method used
-            // For bookings with mixed payments (advance online + balance cash),
-            // only the last payment method is recorded in current system
             
-            int totalCount = filteredBookings.Count;
-            decimal cashAmount = 0;
-            decimal onlineAmount = 0;
-
-            foreach (var booking in filteredBookings)
-            {
-                string paymentMethod = booking.payment_method?.ToLower() ?? "cash";
-                decimal paidAmt = booking.paid_amount;
-
-                // Check if payment method is cash
-                if (paymentMethod == "cash")
-                {
-                    cashAmount += paidAmt;
-                }
-                // Otherwise treat as online (UPI, Online, Card, PhonePe, GooglePay, etc.)
-                else
-                {
-                    onlineAmount += paidAmt;
-                }
-            }
-
-            // Update UI
-            txtPaymentCount.Text = totalCount.ToString();
-            txtCashAmount.Text = $"₹{cashAmount:N0}";
-            txtOnlineAmount.Text = $"₹{onlineAmount:N0}";
+            // Use worker_summary data from active session
+            txtPaymentCount.Text = currentSummary.TotalBooking.ToString();
+            txtCashAmount.Text = $"₹{currentSummary.InCashCollect:N0}";
+            txtOnlineAmount.Text = $"₹{currentSummary.InUpiCollect:N0}";
+            Logger.Log($"[Report] Payment breakdown from active session: Cash=₹{currentSummary.InCashCollect}, UPI=₹{currentSummary.InUpiCollect}");
         }
 
         private void UpdateDataGrid()

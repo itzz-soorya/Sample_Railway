@@ -43,6 +43,12 @@ namespace UserModule.Models
         
         [JsonProperty("grace_amount_type_2")]
         public decimal? GraceAmountType2 { get; set; }
+        
+        [JsonProperty("grace_time_type_1")]
+        public int? GraceTimeType1 { get; set; }
+        
+        [JsonProperty("grace_time_type_2")]
+        public int? GraceTimeType2 { get; set; }
     }
     
     // API Response Model for Type2 Details (matches /api/Settings/sleeping-details/{adminId})
