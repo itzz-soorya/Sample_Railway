@@ -189,13 +189,14 @@ namespace UserModule
             // Filter bookings by:
             // 1. Date range
             // 2. Either created by this worker (worker_id) OR closed by this worker (closed_by)
-            // 3. Show both active and completed bookings
+            // 3. Show only completed bookings
             filteredBookings = allBookings
                 .Where(b => b.created_at.HasValue && 
                            b.created_at.Value >= fromDate && 
                            b.created_at.Value <= toDate &&
                            (b.worker_id == currentWorkerId || 
-                            b.closed_by == currentUsername))
+                            b.closed_by == currentUsername) &&
+                           "completed".Equals(b.status, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(b => b.created_at)
                 .ToList();
 
