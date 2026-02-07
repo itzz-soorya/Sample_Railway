@@ -412,8 +412,40 @@
                             <!-- Number of Persons -->
                             <StackPanel Grid.Column="0" Margin="0,0,8,12" Background="Transparent">
                                 <TextBlock Text="Number of Persons" FontWeight="SemiBold" FontSize="14" Foreground="#333" Margin="0,0,0,8"/>
-                                <TextBox x:Name="txtPersons" Style="{StaticResource RoundedWatermarkTextBoxStyle}" Tag="Enter number" Foreground="Black" FontWeight="DemiBold" Height="40" PreviewKeyDown="Control_PreviewKeyDown" PreviewTextInput="NumbersOnly_PreviewTextInput" DataObject.Pasting="NumbersOnly_Pasting"/>
-                                <TextBlock x:Name="errPersons" Text="* Fill Number of Persons" Foreground="#CC1F1F" FontSize="12" Visibility="Collapsed" Margin="5,2,0,0"/>
+                                <ComboBox x:Name="txtPersons"
+                                    Height="40"
+                                    Padding="10,0"
+                                    FontSize="14"
+                                    PreviewKeyDown="Control_PreviewKeyDown"
+                                    Foreground="Black" FontWeight="DemiBold"
+                                    Background="White"
+                                    HorizontalContentAlignment="Left"
+                                    VerticalContentAlignment="Center"
+                                    MaxDropDownHeight="250"
+                                    Style="{StaticResource WhiteComboBoxStyle}">
+                                    <ComboBoxItem x:Name="personsPlaceholder" Content="Select persons" IsEnabled="False" Style="{StaticResource WhiteComboBoxItemStyle}" IsSelected="True"/>
+                                    <ComboBoxItem Content="1" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="2" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="3" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="4" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="5" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="6" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="7" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="8" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="9" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="10" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="11" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="12" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="13" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="14" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="15" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="16" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="17" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="18" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="19" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="20" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                </ComboBox>
+                                <TextBlock x:Name="errPersons" Text="* Select Number of Persons" Foreground="#CC1F1F" FontSize="12" Visibility="Collapsed" Margin="5,2,0,0"/>
                             </StackPanel>
 
                             
@@ -430,7 +462,7 @@
                                     Background="White"
                                     HorizontalContentAlignment="Left"
                                     VerticalContentAlignment="Center"
-                                    MaxDropDownHeight="250"
+                                    MaxDropDownHeight="450"
                                     Style="{StaticResource WhiteComboBoxStyle}"
                                     SelectionChanged="txtHours_SelectionChanged"
                                     DropDownOpened="txtHours_DropDownOpened">
@@ -447,6 +479,18 @@
                                     <ComboBoxItem Content="10 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
                                     <ComboBoxItem Content="11 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
                                     <ComboBoxItem Content="12 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="13 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="14 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="15 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="16 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="17 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="18 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="19 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="20 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="21 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="22 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="23 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                    <ComboBoxItem Content="24 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
                                 </ComboBox>
 
                                 <TextBlock x:Name="errHours" Text="* Select Total Hours" Foreground="#CC1F1F" FontSize="12" Visibility="Collapsed" Margin="5,2,0,0"/>
@@ -857,7 +901,7 @@
                                     Background="White"
                                     HorizontalContentAlignment="Left"
                                     VerticalContentAlignment="Center"
-                                    MaxDropDownHeight="250"
+                                    MaxDropDownHeight="450"
                                     Style="{StaticResource WhiteComboBoxStyle}"
                                     SelectionChanged="SummaryHours_SelectionChanged"
                                     DropDownOpened="SummaryHours_DropDownOpened"
@@ -875,6 +919,18 @@
                                 <ComboBoxItem Content="10 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
                                 <ComboBoxItem Content="11 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
                                 <ComboBoxItem Content="12 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="13 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="14 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="15 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="16 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="17 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="18 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="19 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="20 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="21 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="22 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="23 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
+                                <ComboBoxItem Content="24 hr" Style="{StaticResource WhiteComboBoxItemStyle}"/>
                             </ComboBox>
                         </StackPanel>
 

@@ -63,7 +63,7 @@ namespace UserModule
 
             txtFirstName.TextChanged += (s, e) => errCustomer.Visibility = Visibility.Collapsed;
             txtPhone.TextChanged += (s, e) => errPhone.Visibility = Visibility.Collapsed;
-            txtPersons.TextChanged += (s, e) => errPersons.Visibility = Visibility.Collapsed;
+            txtPersons.SelectionChanged += (s, e) => errPersons.Visibility = Visibility.Collapsed;
             txtIdNumber.TextChanged += (s, e) => errIdNumber.Visibility = Visibility.Collapsed;
 
             // Reset Enter count when ID number changes
@@ -76,7 +76,6 @@ namespace UserModule
             // Change TextBox foreground color based on content
             txtFirstName.TextChanged += TextBox_ForegroundColorChanged;
             txtPhone.TextChanged += TextBox_ForegroundColorChanged;
-            txtPersons.TextChanged += TextBox_ForegroundColorChanged;
             txtIdNumber.TextChanged += TextBox_ForegroundColorChanged;
 
             txtSeats.SelectionChanged += (s, e) => errSeats.Visibility = Visibility.Collapsed;
@@ -89,7 +88,7 @@ namespace UserModule
             // Update total amount automatically when user changes inputs
             txtSeats.SelectionChanged += (s, e) => UpdateAmount();
             txtHours.SelectionChanged += (s, e) => UpdateAmount();
-            txtPersons.TextChanged += (s, e) => UpdateAmount();
+            txtPersons.SelectionChanged += (s, e) => UpdateAmount();
 
             txtPhone.TextChanged += (s, e) =>
             {
@@ -130,8 +129,7 @@ namespace UserModule
             try
             {
                 // 1. Set Number of Persons = 1
-                txtPersons.Text = "1";
-                SetForegroundColor(txtPersons, false); // Black text, not placeholder
+                txtPersons.SelectedIndex = 1; // Index 1 is "1" (index 0 is placeholder)
 
                 // 2. Total Hours is now handled automatically by ConfigureSeatingOptions
                 // when seatingTypes is 0 or 1, so we don't need to set it here
@@ -561,7 +559,7 @@ namespace UserModule
         }
 
         /// <summary>
-        /// Populate hours dropdown with default 1-12 hours (for Sitting)
+        /// Populate hours dropdown with default 1-24 hours (for Sitting)
         /// </summary>
         private void PopulateDefaultHours()
         {
@@ -572,8 +570,8 @@ namespace UserModule
                 txtHours.Items.Clear();
                 txtHours.Items.Add(placeholder);
 
-                // Add default 1-12 hours
-                for (int i = 1; i <= 12; i++)
+                // Add default 1-24 hours
+                for (int i = 1; i <= 24; i++)
                 {
                     var item = new ComboBoxItem
                     {
@@ -641,7 +639,7 @@ namespace UserModule
         }
 
         /// <summary>
-        /// Populate overlay hours combobox with default 1-12 hours (for Sitting)
+        /// Populate overlay hours combobox with default 1-24 hours (for Sitting)
         /// </summary>
         private void PopulateSummaryDefaultHours()
         {
@@ -654,8 +652,8 @@ namespace UserModule
                 summaryHoursCombo.Items.Clear();
                 summaryHoursCombo.Items.Add(placeholder);
 
-                // Add default 1-12 hours
-                for (int i = 1; i <= 12; i++)
+                // Add default 1-24 hours
+                for (int i = 1; i <= 24; i++)
                 {
                     var item = new ComboBoxItem
                     {
@@ -1186,7 +1184,7 @@ namespace UserModule
             // Clear all input fields in NewBooking
             txtCustomer.Text = string.Empty;
             txtPhone.Text = string.Empty;
-            txtPersons.Text = string.Empty;
+            txtPersons.SelectedIndex = 0; // Reset to placeholder
             txtBookingID.Text = string.Empty;
             txtRate.Text = string.Empty;
             txtTotalAmount.Text = string.Empty;
@@ -1216,7 +1214,10 @@ namespace UserModule
         // Amount Calculation
         private void UpdateAmount()
         {
-            if (!int.TryParse(txtPersons.Text, out int persons) || persons <= 0)
+            // Get persons from ComboBox selection
+            var selectedPersonsItem = txtPersons.SelectedItem as ComboBoxItem;
+            if (txtPersons.SelectedIndex <= 0 || selectedPersonsItem == null || 
+                !int.TryParse(selectedPersonsItem.Content?.ToString(), out int persons) || persons <= 0)
             {
                 txtRate.Text = "0";
                 txtTotalAmount.Text = "0";
@@ -1358,9 +1359,13 @@ namespace UserModule
             try
             {
                 // Number of Persons
-                if (summaryPersons != null && int.TryParse(txtPersons.Text, out int persons))
+                if (summaryPersons != null)
                 {
-                    summaryPersons.Text = persons.ToString();
+                    var selectedPersonsItem = txtPersons.SelectedItem as ComboBoxItem;
+                    if (selectedPersonsItem != null && int.TryParse(selectedPersonsItem.Content?.ToString(), out int persons))
+                    {
+                        summaryPersons.Text = persons.ToString();
+                    }
                 }
 
                 // Seat Type
@@ -1714,7 +1719,12 @@ namespace UserModule
                     }
                 }
 
-                int persons = int.TryParse(txtPersons.Text, out var parsedPersons) ? parsedPersons : 0;
+                int persons = 0;
+                var selectedPersonsItem = txtPersons.SelectedItem as ComboBoxItem;
+                if (selectedPersonsItem != null)
+                {
+                    int.TryParse(selectedPersonsItem.Content?.ToString(), out persons);
+                }
                 decimal rate = decimal.TryParse(txtRate.Text, out var r) ? r : 0;
                 decimal totalAmount = decimal.TryParse(txtTotalAmount.Text, out var t) ? t : 0;
                 decimal paidAmount = totalAmount; // User pays full amount at booking time
@@ -1864,7 +1874,7 @@ namespace UserModule
             txtFirstName.Text = string.Empty;
             txtCustomer.Text = string.Empty;
             txtPhone.Text = string.Empty;
-            txtPersons.Text = string.Empty;
+            txtPersons.SelectedIndex = 0; // Reset to placeholder
             txtRate.Text = string.Empty;
             txtTotalAmount.Text = string.Empty;
             txtIdNumber.Text = string.Empty;
@@ -1951,8 +1961,11 @@ namespace UserModule
                 isValid = false;
             }
 
-            // Validate Persons
-            if (string.IsNullOrWhiteSpace(txtPersons.Text) || !int.TryParse(txtPersons.Text, out int persons))
+            // Validate Persons (declare at method scope for reuse)
+            var selectedPersonsItem = txtPersons.SelectedItem as ComboBoxItem;
+            int persons = 0;
+            if (txtPersons.SelectedIndex <= 0 || selectedPersonsItem == null || 
+                !int.TryParse(selectedPersonsItem.Content?.ToString(), out persons))
             {
                 errPersons.Visibility = Visibility.Visible;
                 isValid = false;
@@ -2001,8 +2014,9 @@ namespace UserModule
                 if (decimal.TryParse(txtDiscount.Text, out decimal discount) && discount > 0)
                 {
                     // Get base total (price per person * number of persons)
+                    // Reuse selectedPersonsItem from above
                     if (decimal.TryParse(txtRate.Text, out decimal pricePerPerson) && 
-                        int.TryParse(txtPersons.Text, out int personCount))
+                        selectedPersonsItem != null && int.TryParse(selectedPersonsItem.Content?.ToString(), out int personCount))
                     {
                         decimal baseTotal = pricePerPerson * personCount;
                         
@@ -2226,8 +2240,8 @@ namespace UserModule
                     else { errPhone.Visibility = Visibility.Collapsed; }
                     break;
 
-                case TextBox tb when tb == txtPersons:
-                    if (string.IsNullOrWhiteSpace(tb.Text))
+                case ComboBox cb when cb == txtPersons:
+                    if (cb.SelectedIndex <= 0)
                     {
                         errPersons.Visibility = Visibility.Visible;
                         return false;
@@ -2510,10 +2524,11 @@ namespace UserModule
                 }
 
                 // Get number of persons
-                if (!int.TryParse(txtPersons.Text, out int persons) || persons <= 0)
+                var selectedPersonsItem = txtPersons.SelectedItem as ComboBoxItem;
+                if (selectedPersonsItem == null || !int.TryParse(selectedPersonsItem.Content?.ToString(), out int persons) || persons <= 0)
                 {
                     // If no valid persons, clear total and return
-                    if (string.IsNullOrWhiteSpace(txtPersons.Text))
+                    if (txtPersons.SelectedIndex <= 0)
                     {
                         txtTotalAmount.Text = "0";
                     }
@@ -2584,9 +2599,13 @@ namespace UserModule
                     return; // Only update if overlay is visible
 
                 // Update Number of Persons
-                if (summaryPersons != null && int.TryParse(txtPersons.Text, out int persons))
+                if (summaryPersons != null)
                 {
-                    summaryPersons.Text = persons.ToString();
+                    var selectedPersonsItem = txtPersons.SelectedItem as ComboBoxItem;
+                    if (selectedPersonsItem != null && int.TryParse(selectedPersonsItem.Content?.ToString(), out int persons))
+                    {
+                        summaryPersons.Text = persons.ToString();
+                    }
                 }
 
                 // Update Seat Type

@@ -882,6 +882,7 @@ public static class OfflineBookingStorage
                             UPDATE Bookings 
                             SET status = 'completed', 
                                 out_time = @out_time,
+                                closed_by = @closed_by,
                                 IsSynced = 3,
                                 updated_at = @updated_at 
                             WHERE booking_id = @id";
@@ -889,11 +890,12 @@ public static class OfflineBookingStorage
                         using var updateCmd = new SqliteCommand(updateQuery, connection);
                         updateCmd.Parameters.AddWithValue("@id", booking.booking_id);
                         updateCmd.Parameters.AddWithValue("@out_time", booking.out_time ?? "00:00:00");
+                        updateCmd.Parameters.AddWithValue("@closed_by", "Admin");
                         updateCmd.Parameters.AddWithValue("@updated_at", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
                         updateCmd.ExecuteNonQuery();
                         updatedCount++;
                         
-                        Logger.Log($"Booking {booking.booking_id} synced from server - marked as completed with IsSynced=3");
+                        Logger.Log($"Booking {booking.booking_id} synced from server - marked as completed by Admin with IsSynced=3");
                     }
                 }
             }
@@ -1185,8 +1187,8 @@ public static class OfflineBookingStorage
             DateTime inDateTime  = bookingDate.Date + inTime;
             DateTime outDateTime = bookingDate.Date + outTime;
 
-            // If out time is earlier than in time, assume next-day checkout
-            if (outTime < inTime)
+            // If out time is earlier than or equal to in time, assume next-day checkout (includes 24-hour bookings)
+            if (outTime <= inTime)
             {
                 outDateTime = outDateTime.AddDays(1);
             }

@@ -26,6 +26,7 @@ namespace UserModule
         private Dictionary<string, TextBlock> typeTextBlocks = new Dictionary<string, TextBlock>();
         private string currentFilter = "All"; // Track current filter state
         private DispatcherTimer? refreshTimer;
+        private DispatcherTimer? autoSyncTimer;
 
         public Dashboard()
         {
@@ -38,6 +39,12 @@ namespace UserModule
             refreshTimer.Interval = TimeSpan.FromSeconds(1);
             refreshTimer.Tick += (s, e) => RefreshDataGridView();
             refreshTimer.Start();
+
+            // Start auto-sync timer to fetch admin-closed bookings every 30 seconds
+            autoSyncTimer = new DispatcherTimer();
+            autoSyncTimer.Interval = TimeSpan.FromSeconds(30);
+            autoSyncTimer.Tick += AutoSyncTimer_Tick;
+            autoSyncTimer.Start();
 
             try
             {
@@ -652,8 +659,12 @@ namespace UserModule
                     ContentGrid.Visibility = Visibility.Collapsed;
                     
                     // Reload bookings to reflect any completed bookings
-                    LoadBookings();
-                    UpdateCountsFromBookings();
+                    Dispatcher.Invoke(() =>
+                    {
+                        LoadBookings();
+                        UpdateCountsFromBookings();
+                        RefreshDataGridView();
+                    }, System.Windows.Threading.DispatcherPriority.Render);
                     
                     Logger.Log("Scan control closed - Dashboard refreshed");
                 };
@@ -802,6 +813,46 @@ namespace UserModule
                 RefreshButton.Opacity = 1.0;
             }
         }
+
+        // Auto-sync method - runs every 30 seconds in background
+        private async void AutoSyncTimer_Tick(object? sender, EventArgs e)
+        {
+            try
+            {
+                // Check if internet is available
+                if (!NetworkInterface.GetIsNetworkAvailable())
+                {
+                    Logger.Log("Auto-sync skipped: No network connection");
+                    return;
+                }
+
+                // Get current worker ID
+                string? workerId = LocalStorage.GetItem("workerId");
+                if (string.IsNullOrEmpty(workerId))
+                {
+                    Logger.Log("Auto-sync skipped: Worker ID not found");
+                    return;
+                }
+
+                // Sync with server silently (no messages shown to user)
+                string result = await OfflineBookingStorage.SyncCompletedBookingsFromServerAsync(workerId);
+                Logger.Log($"Auto-sync completed: {result}");
+
+                // Reload bookings if sync was successful
+                if (result.Contains("✅") && result.Contains("synced"))
+                {
+                    LoadBookings();
+                    UpdateCountsFromBookings();
+                    await FetchWorkerBalanceAsync();
+                    Logger.Log("Dashboard refreshed after auto-sync");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                // Silent failure - don't interrupt user workflow
+            }
+        }
     }
 
     // Converter to show only last 6 digits of booking ID
@@ -922,8 +973,8 @@ namespace UserModule
                 // Calculate real end datetime
                 DateTime endDateTime = bookingDate.Date.Add(outTime);
 
-                // Overnight booking
-                if (outTime < inTime)
+                // Overnight booking OR 24-hour booking (when outTime == inTime)
+                if (outTime <= inTime)
                     endDateTime = endDateTime.AddDays(1);
 
                 // 🔴 RED only if expired (>= ensures exact time match)
@@ -971,7 +1022,8 @@ namespace UserModule
 
                 DateTime endDateTime = bookingDate.Date.Add(outTime);
 
-                if (outTime < inTime)
+                // Overnight booking OR 24-hour booking (when outTime == inTime)
+                if (outTime <= inTime)
                     endDateTime = endDateTime.AddDays(1);
 
                 return now >= endDateTime;
