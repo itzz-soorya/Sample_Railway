@@ -66,6 +66,9 @@ namespace UserModule
                 // Fetch worker balance on load
                 _ = FetchWorkerBalanceAsync();
 
+                // Perform initial sync to catch admin-closed bookings
+                _ = PerformInitialSyncAsync();
+
                 // Internet status monitoring is handled by Header control
             }
             catch (Exception ex)
@@ -838,8 +841,8 @@ namespace UserModule
                 string result = await OfflineBookingStorage.SyncCompletedBookingsFromServerAsync(workerId);
                 Logger.Log($"Auto-sync completed: {result}");
 
-                // Reload bookings if sync was successful
-                if (result.Contains("✅") && result.Contains("synced"))
+                // Reload bookings if sync was successful (always refresh to catch any changes)
+                if (result.Contains("✅"))
                 {
                     LoadBookings();
                     UpdateCountsFromBookings();
@@ -851,6 +854,49 @@ namespace UserModule
             {
                 Logger.LogError(ex);
                 // Silent failure - don't interrupt user workflow
+            }
+        }
+
+        // Perform initial sync when dashboard loads to catch admin-closed bookings
+        private async Task PerformInitialSyncAsync()
+        {
+            try
+            {
+                // Wait for UI to fully load
+                await Task.Delay(1000);
+
+                // Check if internet is available
+                if (!NetworkInterface.GetIsNetworkAvailable())
+                {
+                    Logger.Log("Initial sync skipped: No network connection");
+                    return;
+                }
+
+                // Get current worker ID
+                string? workerId = LocalStorage.GetItem("workerId");
+                if (string.IsNullOrEmpty(workerId))
+                {
+                    Logger.Log("Initial sync skipped: Worker ID not found");
+                    return;
+                }
+
+                // Sync with server
+                string result = await OfflineBookingStorage.SyncCompletedBookingsFromServerAsync(workerId);
+                Logger.Log($"Initial sync completed: {result}");
+
+                // Reload bookings if sync was successful
+                if (result.Contains("✅"))
+                {
+                    LoadBookings();
+                    UpdateCountsFromBookings();
+                    await FetchWorkerBalanceAsync();
+                    Logger.Log("Dashboard refreshed after initial sync");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                // Silent failure - don't interrupt dashboard load
             }
         }
     }

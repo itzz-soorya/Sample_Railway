@@ -11,8 +11,8 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Application Metadata -->
     <AssemblyName>Railax</AssemblyName>
-    <Version>2.0.1</Version>
-    <FileVersion>2.0.1</FileVersion>
+    <Version>2.0.4</Version>
+    <FileVersion>2.0.4</FileVersion>
     <Company>Artechnologi</Company>
     <Product>Railax</Product>
     <Description>Railway Ticket Booking and Management System</Description>
