@@ -864,7 +864,7 @@ public static class OfflineBookingStorage
             foreach (var booking in result.completedBookingIds)
             {
                 // Check if booking exists
-                string checkQuery = "SELECT status, out_time FROM Bookings WHERE booking_id = @id";
+                string checkQuery = "SELECT status, out_time, closed_by FROM Bookings WHERE booking_id = @id";
                 using var checkCmd = new SqliteCommand(checkQuery, connection);
                 checkCmd.Parameters.AddWithValue("@id", booking.booking_id);
                 
@@ -873,11 +873,14 @@ public static class OfflineBookingStorage
                 {
                     string currentStatus = reader["status"]?.ToString() ?? "";
                     string currentOutTime = reader["out_time"]?.ToString() ?? "";
+                    string existingClosedBy = reader["closed_by"]?.ToString() ?? "";
                     reader.Close();
 
-                    // Update if status is active OR if out_time is different
-                    if (currentStatus.ToLower() == "active" || currentOutTime != booking.out_time)
+                    // Only update if booking was previously active (admin closed it)
+                    // Don't overwrite worker-closed bookings
+                    if (currentStatus.ToLower() == "active")
                     {
+                        // Admin closed this booking
                         string updateQuery = @"
                             UPDATE Bookings 
                             SET status = 'completed', 
@@ -896,6 +899,25 @@ public static class OfflineBookingStorage
                         updatedCount++;
                         
                         Logger.Log($"Booking {booking.booking_id} synced from server - marked as completed by Admin with IsSynced=3");
+                    }
+                    else if (currentStatus.ToLower() == "completed" && currentOutTime != booking.out_time)
+                    {
+                        // Booking was already completed locally, just update out_time if different
+                        // Preserve the existing closed_by value
+                        string updateQuery = @"
+                            UPDATE Bookings 
+                            SET out_time = @out_time,
+                                IsSynced = 3,
+                                updated_at = @updated_at 
+                            WHERE booking_id = @id";
+
+                        using var updateCmd = new SqliteCommand(updateQuery, connection);
+                        updateCmd.Parameters.AddWithValue("@id", booking.booking_id);
+                        updateCmd.Parameters.AddWithValue("@out_time", booking.out_time ?? "00:00:00");
+                        updateCmd.Parameters.AddWithValue("@updated_at", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                        updateCmd.ExecuteNonQuery();
+                        
+                        Logger.Log($"Booking {booking.booking_id} synced from server - updated out_time, preserved closed_by='{existingClosedBy}'");
                     }
                 }
             }
